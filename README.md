@@ -105,3 +105,22 @@ Configuration uses exported environment variables:
 - `FRUITSAVOR_ALLOWED_ORIGINS`: comma-separated browser origins, such as `http://localhost:3000`. Default: no cross-origin access.
 
 `fruitsavor-api --host 0.0.0.0` requires a token. Use TLS and appropriate hosting controls before exposing it beyond a trusted local environment. There are no user accounts or per-user isolation. Preserve the data directory; use SQLite's online backup mechanism or stop the server before copying its database. Deleting fruit also deletes its scans and artifacts; scans have no automatic expiry.
+
+## Reference-mask validation
+
+Prepare the fixed annotation subset after running dataset preparation, review and exploration:
+
+```sh
+python -m fruitsavor.annotation.cli prepare
+python -m fruitsavor.annotation.cli serve
+```
+
+Open `http://127.0.0.1:8001` to draw masks with an outline, brush or eraser. Save drafts, then mark checked references reviewed. The workbench shows original images without predicted masks. Each save retains its previous revision and records the annotator, declared origin and source/mask checksums. Annotation origin cannot be changed on later revisions.
+
+The pinned protocol selects 16 development and 16 evaluation images, balanced by source stage and including difficult backgrounds, edges and sizes where available. Evaluation excludes known previously viewed images and their similarity groups; those groups do not establish specimen identity. This is a selected image-level segmentation audit, not a representative classification test set.
+
+```sh
+python -m fruitsavor.annotation.cli evaluate
+```
+
+Evaluation withholds metrics until every selected reference is reviewed and human-drawn. It reports per-image and mean IoU, Dice, foreground precision and recall, along with reference revisions and the analysis code checksum. `--partition development --allow-assistant` explicitly enables a separately attributed assistant-reference diagnostic. These references are approximate and do not establish independently validated accuracy. Projects live under `data/annotations/`; results remain in `reports/`.
