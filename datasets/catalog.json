@@ -1,0 +1,43 @@
+{
+  "datasets": [
+    {
+      "id": "bananaimagebd",
+      "title": "BananaImageBD original ripeness images",
+      "source_url": "https://doi.org/10.17632/ptfscwtnyz.2",
+      "license": "CC-BY-4.0",
+      "archive_url": "https://data.mendeley.com/public-files/datasets/ptfscwtnyz/files/6225da7a-83d0-4e03-803d-09a4aff65553/file_downloaded",
+      "archive_bytes": 3683734,
+      "sha256": "ef40381a7a0080cfb07210022c1022c857f2a8fdf06051254124313efb492062",
+      "limitations": [
+        "No verified specimen IDs; do not randomly split images for independent-fruit claims.",
+        "No remaining-life targets."
+      ]
+    },
+    {
+      "id": "banana-day0-7",
+      "title": "Banana ripening day 0 to day 7",
+      "source_url": "https://doi.org/10.17632/d5tczj7fs7.2",
+      "license": "CC-BY-4.0",
+      "archive_url": "https://data.mendeley.com/public-files/datasets/d5tczj7fs7/files/3b7241f7-574e-47b6-b8d3-be05b5f6e40d/file_downloaded",
+      "archive_bytes": 2182097160,
+      "sha256": "12152877d85a882dec13198da9b0e64a70bb038f3c8ec520780b6c130c028ced",
+      "limitations": [
+        "Archive layout not yet audited.",
+        "Day-based suggested classes are proxies, not independent visual labels.",
+        "End of observation is not an observed spoilage event."
+      ]
+    },
+    {
+      "id": "bananaid",
+      "source_url": "https://data.mendeley.com/datasets/h6n5srjjyw/1",
+      "license": "CC-BY-4.0",
+      "status": "candidate; originals only"
+    },
+    {
+      "id": "kaggle-banana-ripeness",
+      "source_url": "https://www.kaggle.com/datasets/shahriar26s/banana-ripeness-classification-dataset",
+      "license": null,
+      "status": "candidate; primary metadata not accessible during research"
+    }
+  ]
+}
