@@ -7,7 +7,7 @@ name = "fruitsavor"
 version = "0.1.0"
 description = "Fruit ripeness research, starting with bananas"
 requires-python = ">=3.11"
-dependencies = ["Pillow>=11,<13"]
+dependencies = ["Pillow>=11,<13", "numpy>=2,<3", "opencv-python-headless>=4.10,<5"]
 
 [project.scripts]
 fruitsavor = "fruitsavor.data:main"

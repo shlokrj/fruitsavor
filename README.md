@@ -2,7 +2,7 @@
 
 Fruit freshness research, starting with banana ripeness and eventually remaining usable shelf life.
 
-The dataset foundation provides verified downloads, image auditing and grouped split utilities. No trained model or shelf-life predictions yet. Ripeness classes do not establish food safety, and elapsed observation time is not a shelf-life target.
+Includes verified data preparation, duplicate review, and an exploratory banana segmentation and color pipeline. No trained model or shelf-life predictions yet. Ripeness classes do not establish food safety, and elapsed observation time is not a shelf-life target.
 
 ## Data
 
@@ -32,6 +32,8 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -e .
 fruitsavor prepare-bananaimagebd
+python -m fruitsavor.review
+python -m fruitsavor.explore
 python -m unittest discover -s tests -v
 ```
 
@@ -48,3 +50,17 @@ python -m fruitsavor.review
 ```
 
 This writes a derived `curated.jsonl` and `review.json`. Both images in the conflicting-label pair are quarantined, leaving 818 images eligible for exploration. A 64-bit difference-hash scan flags 595 candidate pairs at distance ≤4. These are review cues, not confirmed duplicates or specimen identities; no split assignments are inferred from similarity.
+
+## Visual baseline
+
+`python -m fruitsavor.explore` processes curated images and saves masks, `features.jsonl`, a summary and original/overlay comparisons under `reports/color-baseline/`. A single banana on a plain light background is assumed. Analyze your own image with:
+
+```sh
+python -m fruitsavor.vision banana.jpg --output reports/my-banana
+```
+
+Features include foreground area, mean brightness/saturation, and exclusive green-like, yellow-like, brown-like, black-like and other pixel proportions. These HSV thresholds are uncalibrated visual heuristics; shadows and lighting affect the measurements. Background and area warnings flag some failures, but absence of a warning does not establish a correct mask. Blank images return no features.
+
+No annotated reference masks or verified specimen groups are available yet, so segmentation accuracy and classifier performance remain unmeasured. The next milestone is annotated mask validation and a defensible grouped evaluation dataset before training.
+
+Current exploratory run: 818 images processed; 106 flagged for review. These counts describe processing and warnings, not predictive accuracy.
