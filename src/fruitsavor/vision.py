@@ -35,11 +35,16 @@ def analyze(image: Image.Image) -> Analysis:
     largest = 1 + int(np.argmax(stats[1:, cv2.CC_STAT_AREA]))
     seed = (components == largest).astype('uint8')
     seed = cv2.morphologyEx(seed, cv2.MORPH_CLOSE, np.ones((5, 5), 'uint8'))
-    sure = cv2.erode(seed, np.ones((3, 3), 'uint8')).astype(bool)
+    # Shadows can be connected to the fruit in the initial component. Keep the
+    # high-saturation/dark core as the confident GrabCut foreground seed so the
+    # shadow remains probable background instead of becoming part of the mask.
+    saturation_cutoff = max(90.0, float(np.percentile(s[seed.astype(bool)], 60)))
+    core = seed.astype(bool) & ((s >= saturation_cutoff) | (v < 45))
+    sure = cv2.erode(core.astype('uint8'), np.ones((3, 3), 'uint8')).astype(bool)
     if not sure.any():
         return Analysis(np.zeros((height, width), bool), {}, ['insufficient_foreground_seed'] + warnings)
     labels = np.full((height, width), cv2.GC_PR_BGD, 'uint8')
-    labels[seed.astype(bool)] = cv2.GC_PR_FGD
+    labels[core] = cv2.GC_PR_FGD
     labels[sure] = cv2.GC_FGD
     labels[border] = cv2.GC_BGD
     cv2.setRNGSeed(42)

@@ -42,3 +42,16 @@ class VisionTests(unittest.TestCase):
         self.assertIn('background_outside_plain_light_assumption', result.warnings)
         truth = np.asarray(image)[:, :, 0] > 0
         self.assertGreater((result.mask & truth).sum() / (result.mask | truth).sum(), 0.95)
+
+    def test_connected_cast_shadow_is_not_confident_foreground(self):
+        image = Image.new('RGB', (160, 120), (235, 235, 235))
+        draw = ImageDraw.Draw(image)
+        draw.ellipse((40, 25, 105, 100), fill=(240, 215, 20))
+        draw.ellipse((80, 72, 145, 112), fill=(125, 125, 125))
+        result = analyze(image)
+        fruit = np.zeros((120, 160), bool)
+        yy, xx = np.ogrid[:120, :160]
+        fruit = ((xx - 72.5) / 32.5) ** 2 + ((yy - 62.5) / 37.5) ** 2 <= 1
+        shadow_pixels = ((xx - 112.5) / 32.5) ** 2 + ((yy - 92) / 20) ** 2 <= 1
+        self.assertGreater((result.mask & fruit).sum() / fruit.sum(), 0.9)
+        self.assertLess((result.mask & shadow_pixels).sum() / shadow_pixels.sum(), 0.5)

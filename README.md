@@ -63,7 +63,7 @@ Features include foreground area, mean brightness/saturation, and exclusive gree
 
 No annotated reference masks or verified specimen groups are available yet, so segmentation accuracy and classifier performance remain unmeasured. The next milestone is annotated mask validation and a defensible grouped evaluation dataset before training.
 
-Current exploratory run: 818 images processed; 106 flagged for review. These counts describe processing and warnings, not predictive accuracy.
+Current exploratory run: 818 images processed; 106 flagged for review. These counts describe processing and warnings, not predictive accuracy. The development-only shadow-seed refinement is covered by a synthetic connected-shadow test and raised the assistant-reference pilot's mean IoU from 0.873 to 0.916; human-reviewed evaluation remains pending.
 
 ## Backend
 
