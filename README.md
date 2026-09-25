@@ -2,7 +2,7 @@
 
 Fruit freshness research, starting with banana ripeness and eventually remaining usable shelf life.
 
-Includes verified data preparation, duplicate review, and an exploratory banana segmentation and color pipeline. No trained model or shelf-life predictions yet. Ripeness classes do not establish food safety, and elapsed observation time is not a shelf-life target.
+Includes a persistent FastAPI backend, fruit and scan history, verified data preparation, and exploratory banana segmentation/color analysis. No trained model or shelf-life predictions yet. Ripeness classes do not establish food safety, and elapsed observation time is not a shelf-life target.
 
 ## Data
 
@@ -30,7 +30,7 @@ Requires Python 3.11 or newer. Run from the repository root:
 ```sh
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e .
+pip install -e ".[dev]"
 fruitsavor prepare-bananaimagebd
 python -m fruitsavor.review
 python -m fruitsavor.explore
@@ -64,3 +64,44 @@ Features include foreground area, mean brightness/saturation, and exclusive gree
 No annotated reference masks or verified specimen groups are available yet, so segmentation accuracy and classifier performance remain unmeasured. The next milestone is annotated mask validation and a defensible grouped evaluation dataset before training.
 
 Current exploratory run: 818 images processed; 106 flagged for review. These counts describe processing and warnings, not predictive accuracy.
+
+## Backend
+
+Start from the repository root after installation:
+
+```sh
+fruitsavor-api
+```
+
+The API listens at `http://127.0.0.1:8000`; interactive documentation is at `/docs`. Python 3.14 dependency versions used for verification are pinned in `requirements.lock`; reproduce them with `pip install -c requirements.lock -e ".[dev]"`. State and normalized image artifacts are stored together in `data/fruitsavor.sqlite3`, persist across restarts, and stay out of Git. This is a single-user backend.
+
+| Endpoint | Behavior |
+| --- | --- |
+| `GET /health`, `GET /capabilities` | Storage health and supported analysis capabilities |
+| `POST /analyze` | Upload and save a standalone analysis |
+| `POST /fruit`, `GET /fruit` | Create and list tracked fruit |
+| `GET`, `PATCH`, `DELETE /fruit/{id}` | Read, edit or delete fruit and its scans |
+| `POST /fruit/{id}/scan` | Upload a scan for existing fruit |
+| `GET /fruit/{id}/history` | Scan history, newest capture first |
+| `GET /scans`, `GET /scans/{id}` | List or retrieve saved analyses |
+| `DELETE /scans/{id}` | Delete a scan and its artifacts |
+| `GET /scans/{id}/artifacts/{image,mask,overlay}` | Retrieve normalized PNG artifacts |
+
+```sh
+curl -F 'file=@banana.jpg' http://127.0.0.1:8000/analyze
+curl -H 'Content-Type: application/json' \
+  -d '{"name":"Kitchen banana","storage_method":"counter"}' \
+  http://127.0.0.1:8000/fruit
+```
+
+Uploads accept JPEG, PNG or static WebP, up to 10 MiB and 20 million source pixels. Images are oriented, stripped of metadata and resized to a maximum 512-pixel edge. Scan forms also accept `captured_at` (timezone required), `temperature_c`, and `storage_method`. Lists accept `limit` (1–100) and `offset`. Artifact URLs are included in each scan result.
+
+Analysis returns `unvalidated`, `review_required` or `insufficient_image`. Predictions explicitly return `status: unavailable`; ripeness, freshness, confidence and days remaining are null. A blank image returns no features. Concurrent analysis receives `503` with `Retry-After`; other requests remain available. POST requests create new records, so retries after an uncertain network outcome may create duplicates.
+
+Configuration uses exported environment variables:
+
+- `FRUITSAVOR_DATABASE`: database path; defaults to `data/fruitsavor.sqlite3`.
+- `FRUITSAVOR_API_TOKEN`: optional shared bearer token. When set, send `Authorization: Bearer ...` for records, analysis and artifacts. Health and API docs remain public.
+- `FRUITSAVOR_ALLOWED_ORIGINS`: comma-separated browser origins, such as `http://localhost:3000`. Default: no cross-origin access.
+
+`fruitsavor-api --host 0.0.0.0` requires a token. Use TLS and appropriate hosting controls before exposing it beyond a trusted local environment. There are no user accounts or per-user isolation. Preserve the data directory; use SQLite's online backup mechanism or stop the server before copying its database. Deleting fruit also deletes its scans and artifacts; scans have no automatic expiry.
