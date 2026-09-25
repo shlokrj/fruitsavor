@@ -40,3 +40,11 @@ Preparation downloads only the 3.68 MB original ripeness archive, verifies its p
 Fruit IDs, shelf-life targets and splits remain unassigned. The Python `grouped_split` utility requires audited group IDs and rejects exact duplicates across groups. It creates deterministic approximate 70/15/15 splits; class balance and batch independence need separate review. No evaluation is claimed from image-level splits.
 
 Initial audit: 820 images decode successfully; 819 unique decoded images. One duplicate appears under both Ripe and Semi-ripe, so label conflicts need review before training. No specimen-independent evaluation has been run.
+
+Review exact duplicates and retrieve visually similar pairs:
+
+```sh
+python -m fruitsavor.review
+```
+
+This writes a derived `curated.jsonl` and `review.json`. Both images in the conflicting-label pair are quarantined, leaving 818 images eligible for exploration. A 64-bit difference-hash scan flags 595 candidate pairs at distance ≤4. These are review cues, not confirmed duplicates or specimen identities; no split assignments are inferred from similarity.
