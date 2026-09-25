@@ -1,0 +1,166 @@
+"""Transactional SQLite storage for fruit, scans and normalized image artifacts."""
+from contextlib import contextmanager
+from datetime import datetime, timezone
+import json
+from pathlib import Path
+import sqlite3
+from uuid import uuid4
+
+
+class NotFoundError(Exception):
+    pass
+
+
+def now():
+    return datetime.now(timezone.utc).isoformat()
+
+
+class Store:
+    def __init__(self, path: Path):
+        self.path = path
+
+    @contextmanager
+    def connect(self):
+        connection = sqlite3.connect(self.path, timeout=10)
+        connection.row_factory = sqlite3.Row
+        connection.execute('PRAGMA foreign_keys = ON')
+        connection.execute('PRAGMA secure_delete = ON')
+        try:
+            with connection:
+                yield connection
+        finally:
+            connection.close()
+
+    def initialize(self):
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        with self.connect() as db:
+            db.execute('PRAGMA journal_mode = WAL')
+            version = db.execute('PRAGMA user_version').fetchone()[0]
+            if version not in (0, 1):
+                raise RuntimeError(f'Unsupported database schema version: {version}')
+            db.executescript('''
+                BEGIN;
+                CREATE TABLE IF NOT EXISTS fruits (
+                    id TEXT PRIMARY KEY,
+                    fruit_type TEXT NOT NULL,
+                    name TEXT,
+                    storage_method TEXT NOT NULL,
+                    purchased_on TEXT,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS scans (
+                    id TEXT PRIMARY KEY,
+                    fruit_id TEXT REFERENCES fruits(id) ON DELETE CASCADE,
+                    created_at TEXT NOT NULL,
+                    captured_at TEXT NOT NULL,
+                    result_json TEXT NOT NULL,
+                    image BLOB NOT NULL,
+                    mask BLOB NOT NULL,
+                    overlay BLOB NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS scans_fruit_history ON scans(fruit_id, captured_at DESC, id);
+                CREATE INDEX IF NOT EXISTS scans_recent ON scans(created_at DESC, id);
+                CREATE INDEX IF NOT EXISTS fruits_recent ON fruits(updated_at DESC, id);
+                PRAGMA user_version = 1;
+                COMMIT;
+            ''')
+
+    @staticmethod
+    def _fruit(db, fruit_id):
+        row = db.execute('''SELECT f.*, (SELECT count(*) FROM scans s WHERE s.fruit_id=f.id) AS scan_count
+                            FROM fruits f WHERE f.id=?''', (fruit_id,)).fetchone()
+        if row is None:
+            raise NotFoundError('Fruit not found')
+        return dict(row)
+
+    def create_fruit(self, values):
+        identifier, timestamp = str(uuid4()), now()
+        with self.connect() as db:
+            db.execute('INSERT INTO fruits VALUES (?, ?, ?, ?, ?, ?, ?)',
+                       (identifier, values['fruit_type'], values.get('name'), values['storage_method'],
+                        values.get('purchased_on'), timestamp, timestamp))
+            return self._fruit(db, identifier)
+
+    def get_fruit(self, fruit_id):
+        with self.connect() as db:
+            return self._fruit(db, fruit_id)
+
+    def list_fruits(self, limit, offset):
+        with self.connect() as db:
+            total = db.execute('SELECT count(*) FROM fruits').fetchone()[0]
+            rows = db.execute('''SELECT f.*, (SELECT count(*) FROM scans s WHERE s.fruit_id=f.id) AS scan_count
+                                 FROM fruits f ORDER BY updated_at DESC, id LIMIT ? OFFSET ?''',
+                              (limit, offset)).fetchall()
+            return dict(items=[dict(row) for row in rows], total=total, limit=limit, offset=offset)
+
+    def update_fruit(self, fruit_id, values):
+        allowed = {'name', 'storage_method', 'purchased_on'}
+        if set(values) - allowed:
+            raise ValueError('Unsupported fruit update')
+        with self.connect() as db:
+            self._fruit(db, fruit_id)
+            if values:
+                values = dict(values, updated_at=now())
+                assignments = ', '.join(f'{column}=?' for column in values)
+                db.execute(f'UPDATE fruits SET {assignments} WHERE id=?', (*values.values(), fruit_id))
+            return self._fruit(db, fruit_id)
+
+    def delete_fruit(self, fruit_id):
+        with self.connect() as db:
+            if not db.execute('DELETE FROM fruits WHERE id=?', (fruit_id,)).rowcount:
+                raise NotFoundError('Fruit not found')
+
+    def save_scan(self, payload, artifacts, fruit_id=None):
+        identifier, timestamp = str(uuid4()), now()
+        record = dict(payload, id=identifier, fruit_id=fruit_id, created_at=timestamp)
+        with self.connect() as db:
+            if fruit_id is not None:
+                self._fruit(db, fruit_id)
+                db.execute('UPDATE fruits SET updated_at=? WHERE id=?', (timestamp, fruit_id))
+            db.execute('INSERT INTO scans VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                       (identifier, fruit_id, timestamp, record['captured_at'], json.dumps(record, allow_nan=False),
+                        artifacts['image'], artifacts['mask'], artifacts['overlay']))
+        return record
+
+    def get_scan(self, scan_id):
+        with self.connect() as db:
+            row = db.execute('SELECT result_json FROM scans WHERE id=?', (scan_id,)).fetchone()
+            if row is None:
+                raise NotFoundError('Scan not found')
+            return json.loads(row['result_json'])
+
+    def list_scans(self, limit, offset, fruit_id=None):
+        with self.connect() as db:
+            if fruit_id is not None:
+                self._fruit(db, fruit_id)
+            where = 'WHERE fruit_id=?' if fruit_id is not None else ''
+            params = (fruit_id,) if fruit_id is not None else ()
+            total = db.execute(f'SELECT count(*) FROM scans {where}', params).fetchone()[0]
+            rows = db.execute(f'''SELECT result_json FROM scans {where}
+                                  ORDER BY captured_at DESC, id LIMIT ? OFFSET ?''',
+                              (*params, limit, offset)).fetchall()
+            return dict(items=[json.loads(row['result_json']) for row in rows],
+                        total=total, limit=limit, offset=offset)
+
+    def artifact(self, scan_id, kind):
+        if kind not in {'image', 'mask', 'overlay'}:
+            raise NotFoundError('Artifact not found')
+        with self.connect() as db:
+            row = db.execute(f'SELECT {kind} FROM scans WHERE id=?', (scan_id,)).fetchone()
+            if row is None:
+                raise NotFoundError('Scan not found')
+            return row[0]
+
+    def delete_scan(self, scan_id):
+        with self.connect() as db:
+            row = db.execute('SELECT fruit_id FROM scans WHERE id=?', (scan_id,)).fetchone()
+            if row is None:
+                raise NotFoundError('Scan not found')
+            db.execute('DELETE FROM scans WHERE id=?', (scan_id,))
+            if row['fruit_id']:
+                db.execute('UPDATE fruits SET updated_at=? WHERE id=?', (now(), row['fruit_id']))
+
+    def healthy(self):
+        with self.connect() as db:
+            db.execute('SELECT count(*) FROM fruits').fetchone()
