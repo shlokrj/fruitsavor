@@ -50,7 +50,7 @@ def create_app(settings: Settings | None = None):
         })
 
     @app.get('/app/{asset}', include_in_schema=False)
-    def mobile_asset(asset: Literal['app.js', 'style.css']):
+    def mobile_asset(asset: Literal['app.js', 'style.css', 'fredoka.ttf', 'OFL.txt']):
         return FileResponse(Path(__file__).with_name('web') / asset)
     app.add_middleware(RequestLimits, max_bytes=settings.max_upload_bytes + 65536,
                        api_token=settings.api_token)

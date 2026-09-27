@@ -15,7 +15,7 @@ class RequestLimits:
         if scope['type'] != 'http':
             return await self.app(scope, receive, send)
         headers = dict(scope['headers'])
-        public = scope['path'] in {'/', '/app/app.js', '/app/style.css', '/health', '/docs', '/docs/oauth2-redirect', '/redoc', '/openapi.json'}
+        public = scope['path'] in {'/', '/app/app.js', '/app/style.css', '/app/fredoka.ttf', '/app/OFL.txt', '/health', '/docs', '/docs/oauth2-redirect', '/redoc', '/openapi.json'}
         if self.api_token and not public:
             authorization = headers.get(b'authorization', b'').decode('latin1').split(' ', 1)
             if (len(authorization) != 2 or authorization[0].lower() != 'bearer'

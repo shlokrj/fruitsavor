@@ -2,6 +2,7 @@
 const $ = id => document.getElementById(id);
 let token = '', selected = null, photo = null, fruitOffset = 0, scanOffset = 0;
 let limit = 10 * 1024 * 1024, busy = false;
+let previewURL = null;
 const urls = new Set();
 const storageNames = {counter: 'On the counter', refrigerator: 'In the refrigerator', other: 'Stored elsewhere', unknown: 'Storage not recorded'};
 function message(text = '') { $('message').textContent = text; }
@@ -19,7 +20,7 @@ async function request(path, options = {}) {
   if (token) headers.set('Authorization', `Bearer ${token}`);
   const response = await fetch(path, {...options, headers, cache: 'no-store'});
   if (response.status === 401) {
-    token = ''; selected = null; releaseImages(); $('history').replaceChildren(); $('fruit-list').replaceChildren();
+    token = ''; selected = null; clearPhoto(); releaseImages(); $('history').replaceChildren(); $('fruit-list').replaceChildren();
     $('disconnect').hidden = true; show('login');
     throw new Error('Enter a valid access token to connect.');
   }
@@ -46,16 +47,22 @@ async function loadFruit(reset = false) {
     button.onclick = () => run(() => openFruit(fruit)); $('fruit-list').append(button);
   }
   fruitOffset += page.items.length; $('more-fruit').hidden = fruitOffset >= page.total;
-  if (!page.total) $('fruit-list').append(text('p', 'No bananas yet. Add your first one above.'));
+  $('fruit-count').textContent = page.total ? String(page.total).padStart(2, '0') : '';
+  if (!page.total) { const empty = text('p', 'A fresh start. Add your first banana.'); empty.className = 'empty'; $('fruit-list').append(empty); }
 }
 async function connect() {
   const capabilities = await (await request('/capabilities')).json(); limit = capabilities.max_upload_bytes;
   await loadFruit(true); show('collection'); $('disconnect').hidden = !token;
 }
 function clearPhoto() {
+  clearPreview();
   photo = null; $('camera').value = ''; $('library').value = '';
   const now = new Date(); $('captured').value = new Date(now - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-  $('chosen').textContent = 'JPEG, PNG or WebP, up to 10 MB. HEIC photos need conversion first.';
+  $('chosen').textContent = `JPEG, PNG or WebP · up to ${Math.round(limit / 1024 / 1024)} MB. Convert HEIC first.`;
+}
+function clearPreview() {
+  if (previewURL) URL.revokeObjectURL(previewURL);
+  previewURL = null; $('preview-image').removeAttribute('src'); $('photo-preview').hidden = true;
 }
 async function openFruit(fruit) {
   selected = fruit; clearPhoto(); $('fruit-name').textContent = fruit.name || 'Banana';
@@ -85,27 +92,36 @@ $('login-form').onsubmit = event => { event.preventDefault(); run(async () => { 
 $('add-form').onsubmit = event => {
   event.preventDefault(); run(async () => {
     const fruit = await (await request('/fruit', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({name: $('name').value.trim(), storage_method: $('storage').value})})).json();
-    $('name').value = ''; await openFruit(fruit);
+    $('name').value = ''; $('add-form').hidden = true; $('toggle-add').setAttribute('aria-expanded', 'false'); await openFruit(fruit);
   });
 };
 for (const id of ['camera', 'library']) $(id).onchange = () => {
+  clearPreview();
   photo = $(id).files[0] || null; $(id === 'camera' ? 'library' : 'camera').value = ''; message();
   if (photo && photo.size > limit) { photo = null; message('That photo is too large. Choose a photo under the upload limit.'); }
   if (photo && !['image/jpeg', 'image/png', 'image/webp'].includes(photo.type)) { photo = null; message('Use JPEG, PNG or WebP. Convert HEIC photos before uploading.'); }
   $('chosen').textContent = photo ? photo.name : 'No photo selected.'; $('save-scan').disabled = !photo;
+  if (photo) { previewURL = URL.createObjectURL(photo); $('preview-image').src = previewURL; $('photo-preview').hidden = false; }
+};
+$('remove-photo').onclick = () => { clearPhoto(); $('save-scan').disabled = true; };
+$('toggle-add').onclick = () => {
+  const open = $('add-form').hidden; $('add-form').hidden = !open;
+  $('toggle-add').setAttribute('aria-expanded', String(open));
+  if (open) $('name').focus();
 };
 $('scan-form').onsubmit = event => {
   event.preventDefault(); if (!photo) return;
   run(async () => {
     const form = new FormData(); form.append('file', photo);
     form.append('captured_at', new Date($('captured').value).toISOString());
+    message('Saving your photo…');
     await request(`/fruit/${selected.id}/scan`, {method: 'POST', body: form});
     clearPhoto(); await loadHistory(true); message('Scan saved.');
   });
 };
-$('back').onclick = () => run(async () => { await loadFruit(true); selected = null; releaseImages(); $('history').replaceChildren(); show('collection'); });
+$('back').onclick = () => run(async () => { await loadFruit(true); selected = null; clearPhoto(); releaseImages(); $('history').replaceChildren(); show('collection'); });
 $('more-fruit').onclick = () => run(() => loadFruit());
 $('more-scans').onclick = () => run(() => loadHistory());
 $('disconnect').onclick = () => { token = ''; selected = null; clearPhoto(); releaseImages(); $('history').replaceChildren(); $('fruit-list').replaceChildren(); $('disconnect').hidden = true; message(); show('login'); };
-window.addEventListener('pagehide', releaseImages);
+window.addEventListener('pagehide', () => { clearPreview(); releaseImages(); });
 run(connect);

@@ -77,6 +77,8 @@ The API listens at `http://127.0.0.1:8000`; interactive documentation is at `/do
 
 Open `/` for the mobile web preview: add a named banana, take or choose a photo, record its capture time, and revisit its photo history. Camera selection depends on the phone/browser; a separate photo-library picker is also available. HEIC is not supported yet. Ripeness, best-to-eat timing and days remaining are explicitly unavailable. This is a browser preview, not an installable native app or offline app.
 
+The blue-and-cream interface includes an expandable add-fruit form and a photo preview with removal before saving. Display type uses locally bundled [Fredoka](https://github.com/google/fonts/tree/main/ofl/fredoka); its SIL Open Font License is included beside the font. No external font requests are made.
+
 When a server token is configured, enter it in the interface; it stays only in tab memory and must be entered again after reloading. Images are fetched with the same authorization as records. The application shell is public but fruit records and photos remain protected. For phone testing, serve through an HTTPS endpoint reachable from the phone; the computer’s loopback URL is only accessible on that computer.
 
 | Endpoint | Behavior |
