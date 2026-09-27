@@ -143,6 +143,13 @@ class APITests(unittest.TestCase):
         settings = Settings(database=self.settings.database, api_token='test-token-only',
                             allowed_origins=('http://localhost:3000',))
         with TestClient(create_app(settings)) as secured:
+            shell = secured.get('/')
+            self.assertEqual(shell.status_code, 200)
+            self.assertIn("frame-ancestors 'none'", shell.headers['content-security-policy'])
+            self.assertNotIn('test-token-only', shell.text)
+            for asset in ('app.js', 'style.css'):
+                self.assertEqual(secured.get('/app/' + asset).status_code, 200)
+            self.assertEqual(secured.get('/app/anything-else').status_code, 401)
             self.assertEqual(secured.get('/health').status_code, 200)
             self.assertEqual(secured.get('/docs').status_code, 200)
             self.assertEqual(secured.get('/fruit').status_code, 401)

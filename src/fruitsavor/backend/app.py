@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 import hmac
 import logging
 import sqlite3
+from pathlib import Path
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -12,7 +13,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import ValidationError
-from starlette.responses import JSONResponse
+from starlette.responses import FileResponse, JSONResponse
 
 from .config import Settings
 from .middleware import RequestLimits
@@ -40,6 +41,17 @@ def create_app(settings: Settings | None = None):
     app.state.store = store
     app.state.analysis_service = service
     app.state.settings = settings
+
+    @app.get('/', include_in_schema=False)
+    def mobile_app():
+        return FileResponse(Path(__file__).with_name('web') / 'index.html', headers={
+            'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+            'Referrer-Policy': 'no-referrer',
+        })
+
+    @app.get('/app/{asset}', include_in_schema=False)
+    def mobile_asset(asset: Literal['app.js', 'style.css']):
+        return FileResponse(Path(__file__).with_name('web') / asset)
     app.add_middleware(RequestLimits, max_bytes=settings.max_upload_bytes + 65536,
                        api_token=settings.api_token)
     if settings.allowed_origins:

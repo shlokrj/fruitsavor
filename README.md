@@ -2,7 +2,7 @@
 
 Fruit freshness research, starting with banana ripeness and eventually remaining usable shelf life.
 
-Includes a persistent FastAPI backend, fruit and scan history, verified data preparation, and exploratory banana segmentation/color analysis. No trained model or shelf-life predictions yet. Ripeness classes do not establish food safety, and elapsed observation time is not a shelf-life target.
+Includes a phone-friendly photo tracking interface, persistent FastAPI backend, fruit and scan history, verified data preparation, and exploratory banana segmentation/color analysis. No trained model or shelf-life predictions yet. Ripeness classes do not establish food safety, and elapsed observation time is not a shelf-life target.
 
 ## Data
 
@@ -74,6 +74,10 @@ fruitsavor-api
 ```
 
 The API listens at `http://127.0.0.1:8000`; interactive documentation is at `/docs`. Python 3.14 dependency versions used for verification are pinned in `requirements.lock`; reproduce them with `pip install -c requirements.lock -e ".[dev]"`. State and normalized image artifacts are stored together in `data/fruitsavor.sqlite3`, persist across restarts, and stay out of Git. This is a single-user backend.
+
+Open `/` for the mobile web preview: add a named banana, take or choose a photo, record its capture time, and revisit its photo history. Camera selection depends on the phone/browser; a separate photo-library picker is also available. HEIC is not supported yet. Ripeness, best-to-eat timing and days remaining are explicitly unavailable. This is a browser preview, not an installable native app or offline app.
+
+When a server token is configured, enter it in the interface; it stays only in tab memory and must be entered again after reloading. Images are fetched with the same authorization as records. The application shell is public but fruit records and photos remain protected. For phone testing, serve through an HTTPS endpoint reachable from the phone; the computer’s loopback URL is only accessible on that computer.
 
 | Endpoint | Behavior |
 | --- | --- |

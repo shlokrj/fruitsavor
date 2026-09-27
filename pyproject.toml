@@ -21,3 +21,4 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "fruitsavor.annotation" = ["workbench.html"]
+"fruitsavor.backend" = ["web/*.html", "web/*.js", "web/*.css"]
