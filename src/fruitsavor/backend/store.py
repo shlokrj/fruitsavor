@@ -36,7 +36,7 @@ class Store:
         with self.connect() as db:
             db.execute('PRAGMA journal_mode = WAL')
             version = db.execute('PRAGMA user_version').fetchone()[0]
-            if version not in (0, 1):
+            if version not in (0, 1, 2):
                 raise RuntimeError(f'Unsupported database schema version: {version}')
             db.executescript('''
                 BEGIN;
@@ -62,7 +62,14 @@ class Store:
                 CREATE INDEX IF NOT EXISTS scans_fruit_history ON scans(fruit_id, captured_at DESC, id);
                 CREATE INDEX IF NOT EXISTS scans_recent ON scans(created_at DESC, id);
                 CREATE INDEX IF NOT EXISTS fruits_recent ON fruits(updated_at DESC, id);
-                PRAGMA user_version = 1;
+                CREATE TABLE IF NOT EXISTS observations (
+                    id TEXT PRIMARY KEY,
+                    fruit_id TEXT NOT NULL REFERENCES fruits(id) ON DELETE CASCADE,
+                    observed_at TEXT NOT NULL,
+                    result_json TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS observations_history ON observations(fruit_id, observed_at DESC, id);
+                PRAGMA user_version = 2;
                 COMMIT;
             ''')
 
@@ -164,3 +171,32 @@ class Store:
     def healthy(self):
         with self.connect() as db:
             db.execute('SELECT count(*) FROM fruits').fetchone()
+
+    def save_observation(self, fruit_id, values):
+        identifier, timestamp = str(uuid4()), now()
+        values = dict(values, observed_at=datetime.fromisoformat(values['observed_at']).astimezone(
+            timezone.utc).isoformat(timespec='microseconds'))
+        with self.connect() as db:
+            fruit = self._fruit(db, fruit_id)
+            record = dict(values, id=identifier, fruit_id=fruit_id, created_at=timestamp,
+                          source='user_reported', storage_method=fruit['storage_method'])
+            db.execute('INSERT INTO observations VALUES (?, ?, ?, ?)',
+                       (identifier, fruit_id, record['observed_at'], json.dumps(record, allow_nan=False)))
+            db.execute('UPDATE fruits SET updated_at=? WHERE id=?', (timestamp, fruit_id))
+            return record
+
+    def list_observations(self, fruit_id, limit, offset):
+        with self.connect() as db:
+            self._fruit(db, fruit_id)
+            total = db.execute('SELECT count(*) FROM observations WHERE fruit_id=?', (fruit_id,)).fetchone()[0]
+            rows = db.execute('SELECT result_json FROM observations WHERE fruit_id=? '
+                              'ORDER BY observed_at DESC, id LIMIT ? OFFSET ?', (fruit_id, limit, offset)).fetchall()
+            return dict(items=[json.loads(row[0]) for row in rows], total=total, limit=limit, offset=offset)
+
+    def delete_observation(self, fruit_id, observation_id):
+        with self.connect() as db:
+            self._fruit(db, fruit_id)
+            if not db.execute('DELETE FROM observations WHERE id=? AND fruit_id=?',
+                              (observation_id, fruit_id)).rowcount:
+                raise NotFoundError('Observation not found')
+            db.execute('UPDATE fruits SET updated_at=? WHERE id=?', (now(), fruit_id))

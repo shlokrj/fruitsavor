@@ -21,6 +21,7 @@ from .schemas import (CaptureMetadata, FruitCreate, FruitPage, FruitPatch, Fruit
                       FruitType, ScanPage, ScanRecord, StorageMethod)
 from .service import AnalysisBusyError, AnalysisService, ImageInputError
 from .store import NotFoundError, Store
+from .schemas import ObservationCreate, ObservationPage, ObservationRecord
 
 logger = logging.getLogger(__name__)
 
@@ -179,6 +180,21 @@ def create_app(settings: Settings | None = None):
                      offset: Annotated[int, Query(ge=0)] = 0):
         page = store.list_scans(limit, offset)
         return dict(page, items=[present(row) for row in page['items']])
+
+    @router.post('/fruit/{fruit_id}/observations', response_model=ObservationRecord,
+                 status_code=201, tags=['observations'])
+    def add_observation(fruit_id: UUID, observation: ObservationCreate):
+        return store.save_observation(str(fruit_id), observation.model_dump(mode='json'))
+
+    @router.get('/fruit/{fruit_id}/observations', response_model=ObservationPage, tags=['observations'])
+    def observations(fruit_id: UUID, limit: Annotated[int, Query(ge=1, le=100)] = 20,
+                     offset: Annotated[int, Query(ge=0)] = 0):
+        return store.list_observations(str(fruit_id), limit, offset)
+
+    @router.delete('/fruit/{fruit_id}/observations/{observation_id}', status_code=204, tags=['observations'])
+    def delete_observation(fruit_id: UUID, observation_id: UUID):
+        store.delete_observation(str(fruit_id), str(observation_id))
+        return Response(status_code=204)
 
     @router.get('/scans/{scan_id}', response_model=ScanRecord, tags=['scans'])
     def get_scan(scan_id: UUID):

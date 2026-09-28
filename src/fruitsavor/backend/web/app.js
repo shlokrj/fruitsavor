@@ -3,6 +3,7 @@ const $ = id => document.getElementById(id);
 let token = '', selected = null, photo = null, fruitOffset = 0, scanOffset = 0;
 let limit = 10 * 1024 * 1024, busy = false;
 let previewURL = null;
+let observationOffset = 0;
 const urls = new Set();
 const storageNames = {counter: 'On the counter', refrigerator: 'In the refrigerator', other: 'Stored elsewhere', unknown: 'Storage not recorded'};
 function message(text = '') { $('message').textContent = text; }
@@ -12,7 +13,7 @@ function show(section) {
 function releaseImages() { for (const url of urls) URL.revokeObjectURL(url); urls.clear(); }
 function lock(value) {
   busy = value;
-  document.querySelectorAll('button, input, select').forEach(el => { el.disabled = value; });
+  document.querySelectorAll('button, input, select, textarea').forEach(el => { el.disabled = value; });
   $('save-scan').disabled = value || !photo;
 }
 async function request(path, options = {}) {
@@ -21,6 +22,7 @@ async function request(path, options = {}) {
   const response = await fetch(path, {...options, headers, cache: 'no-store'});
   if (response.status === 401) {
     token = ''; selected = null; clearPhoto(); releaseImages(); $('history').replaceChildren(); $('fruit-list').replaceChildren();
+    $('observations').replaceChildren(); $('observation-form').reset();
     $('disconnect').hidden = true; show('login');
     throw new Error('Enter a valid access token to connect.');
   }
@@ -67,8 +69,39 @@ function clearPreview() {
 async function openFruit(fruit) {
   selected = fruit; clearPhoto(); $('fruit-name').textContent = fruit.name || 'Banana';
   $('fruit-storage').textContent = storageNames[fruit.storage_method];
-  releaseImages(); $('history').replaceChildren(); show('detail'); await loadHistory(true);
+  $('observation-form').reset(); $('check-in').open = false; resetObservationTime();
+  $('observations').replaceChildren(); $('more-observations').hidden = true;
+  releaseImages(); $('history').replaceChildren(); show('detail'); await loadHistory(true); await loadObservations(true);
 }
+function resetObservationTime() {
+  const now = new Date(); $('observed').value = new Date(now - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+}
+async function loadObservations(reset = false) {
+  const page = await (await request(`/fruit/${selected.id}/observations?limit=10&offset=${reset ? 0 : observationOffset}`)).json();
+  if (reset) { observationOffset = 0; $('observations').replaceChildren(); }
+  const stages = {unripe:'Unripe', ripe:'Ripe', overripe:'Overripe', unsure:'Ripeness unsure'};
+  const answers = {acceptable:'Would use', unacceptable:'Would not use', unsure:'Unsure about using'};
+  for (const observation of page.items) {
+    const row = document.createElement('article');
+    row.append(text('h3', `Your check-in · ${new Date(observation.observed_at).toLocaleString()}`));
+    row.append(text('p', `${stages[observation.ripeness]} · ${answers[observation.acceptability]} for ${observation.intended_use === 'eat_fresh' ? 'eating fresh' : 'cooking or baking'}`));
+    if (observation.notes) row.append(text('p', observation.notes));
+    $('observations').append(row);
+  }
+  observationOffset += page.items.length; $('more-observations').hidden = observationOffset >= page.total;
+}
+$('observation-form').onsubmit = event => {
+  event.preventDefault(); run(async () => {
+    await request(`/fruit/${selected.id}/observations`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({
+      observed_at:new Date($('observed').value).toISOString(), ripeness:$('ripeness').value,
+      intended_use:$('intended-use').value, acceptability:$('acceptability').value,
+      notes:$('observation-notes').value.trim() || null
+    })});
+    $('observation-form').reset(); resetObservationTime(); $('check-in').open = false;
+    await loadObservations(true); message('Check-in saved.');
+  });
+};
+$('more-observations').onclick = () => run(() => loadObservations());
 async function loadHistory(reset = false) {
   const page = await (await request(`/fruit/${selected.id}/history?limit=10&offset=${reset ? 0 : scanOffset}`)).json();
   if (reset) { scanOffset = 0; releaseImages(); $('history').replaceChildren(); }
@@ -122,6 +155,6 @@ $('scan-form').onsubmit = event => {
 $('back').onclick = () => run(async () => { await loadFruit(true); selected = null; clearPhoto(); releaseImages(); $('history').replaceChildren(); show('collection'); });
 $('more-fruit').onclick = () => run(() => loadFruit());
 $('more-scans').onclick = () => run(() => loadHistory());
-$('disconnect').onclick = () => { token = ''; selected = null; clearPhoto(); releaseImages(); $('history').replaceChildren(); $('fruit-list').replaceChildren(); $('disconnect').hidden = true; message(); show('login'); };
+$('disconnect').onclick = () => { token = ''; selected = null; clearPhoto(); releaseImages(); $('history').replaceChildren(); $('fruit-list').replaceChildren(); $('observations').replaceChildren(); $('observation-form').reset(); $('disconnect').hidden = true; message(); show('login'); };
 window.addEventListener('pagehide', () => { clearPreview(); releaseImages(); });
 run(connect);

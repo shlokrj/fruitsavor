@@ -79,6 +79,8 @@ Open `/` for the mobile web preview: add a named banana, take or choose a photo,
 
 The blue-and-cream interface includes an expandable add-fruit form and a photo preview with removal before saving. Display type uses locally bundled [Fredoka](https://github.com/google/fonts/tree/main/ofl/fredoka); its SIL Open Font License is included beside the font. No external font requests are made.
 
+Each banana also supports dated personal check-ins: observed ripeness, intended use (fresh or cooking), whether you would use it for that purpose, and optional notes. Reports are explicitly user-reported and separate from image analysis. They are not food-safety assessments or validated shelf-life endpoints; no days-left targets are inferred. The fruit's current storage setting is snapshotted when the report is saved, including for backdated entries.
+
 When a server token is configured, enter it in the interface; it stays only in tab memory and must be entered again after reloading. Images are fetched with the same authorization as records. The application shell is public but fruit records and photos remain protected. For phone testing, serve through an HTTPS endpoint reachable from the phone; the computer’s loopback URL is only accessible on that computer.
 
 | Endpoint | Behavior |
@@ -89,6 +91,8 @@ When a server token is configured, enter it in the interface; it stays only in t
 | `GET`, `PATCH`, `DELETE /fruit/{id}` | Read, edit or delete fruit and its scans |
 | `POST /fruit/{id}/scan` | Upload a scan for existing fruit |
 | `GET /fruit/{id}/history` | Scan history, newest capture first |
+| `POST`, `GET /fruit/{id}/observations` | Save and list personal check-ins, newest observation first |
+| `DELETE /fruit/{id}/observations/{observation_id}` | Remove an incorrect check-in |
 | `GET /scans`, `GET /scans/{id}` | List or retrieve saved analyses |
 | `DELETE /scans/{id}` | Delete a scan and its artifacts |
 | `GET /scans/{id}/artifacts/{image,mask,overlay}` | Retrieve normalized PNG artifacts |
@@ -103,6 +107,8 @@ curl -H 'Content-Type: application/json' \
 Uploads accept JPEG, PNG or static WebP, up to 10 MiB and 20 million source pixels. Images are oriented, stripped of metadata and resized to a maximum 512-pixel edge. Scan forms also accept `captured_at` (timezone required), `temperature_c`, and `storage_method`. Lists accept `limit` (1–100) and `offset`. Artifact URLs are included in each scan result.
 
 Analysis returns `unvalidated`, `review_required` or `insufficient_image`. Predictions explicitly return `status: unavailable`; ripeness, freshness, confidence and days remaining are null. A blank image returns no features. Concurrent analysis receives `503` with `Retry-After`; other requests remain available. POST requests create new records, so retries after an uncertain network outcome may create duplicates.
+
+Database schema v2 upgrades existing v1 databases on startup without replacing fruit or scan records. Check-ins persist across restarts and are deleted with their fruit. A future training dataset still needs audited specimen/batch identity, a predefined rejection rubric, and explicit censoring; personal check-ins alone do not meet that standard.
 
 Configuration uses exported environment variables:
 

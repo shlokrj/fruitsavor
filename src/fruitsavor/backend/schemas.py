@@ -81,6 +81,34 @@ class Features(Contract):
     mean_brightness: Ratio
 
 
+class ObservationCreate(Contract):
+    observed_at: AwareDatetime
+    ripeness: Literal['unripe', 'ripe', 'overripe', 'unsure']
+    intended_use: Literal['eat_fresh', 'cooking']
+    acceptability: Literal['acceptable', 'unacceptable', 'unsure']
+    notes: Annotated[str, Field(max_length=500)] | None = None
+
+    @field_validator('observed_at')
+    @classmethod
+    def valid_observed_time(cls, value):
+        return CaptureMetadata.valid_capture_time(value)
+
+
+class ObservationRecord(ObservationCreate):
+    id: UUID
+    fruit_id: UUID
+    created_at: AwareDatetime
+    source: Literal['user_reported']
+    storage_method: StorageMethod
+
+
+class ObservationPage(Contract):
+    items: list[ObservationRecord]
+    total: int
+    limit: int
+    offset: int
+
+
 class Prediction(Contract):
     status: Literal['unavailable'] = 'unavailable'
     reason: Literal['no_validated_model'] = 'no_validated_model'

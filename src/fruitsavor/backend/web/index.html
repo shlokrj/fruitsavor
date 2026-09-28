@@ -38,6 +38,18 @@
       <button id="save-scan" disabled>Save scan</button>
     </form>
     <div class="notice"><h2>Best to eat &amp; days left <span>Coming later</span></h2><p>Photos for now. Ripeness and days-left estimates aren’t available yet.</p></div>
+    <details id="check-in" class="check-in"><summary>Add a check-in <span>Your own observations</span></summary>
+      <form id="observation-form" class="panel">
+        <p>What do you notice today? These are your observations, not an app prediction or a food-safety assessment.</p>
+        <label for="observed">Checked at (your local time)</label><input id="observed" type="datetime-local" required>
+        <label for="ripeness">Ripeness</label><select id="ripeness" required><option value="">Choose a stage</option><option value="unripe">Unripe</option><option value="ripe">Ripe</option><option value="overripe">Overripe</option><option value="unsure">Not sure</option></select>
+        <label for="intended-use">Intended use</label><select id="intended-use" required><option value="">Choose a use</option><option value="eat_fresh">Eating fresh</option><option value="cooking">Cooking or baking</option></select>
+        <label for="acceptability">Would you use it for that?</label><select id="acceptability" required><option value="">Choose an answer</option><option value="acceptable">Yes</option><option value="unacceptable">No</option><option value="unsure">Not sure</option></select>
+        <label for="observation-notes">Notes (optional)</label><textarea id="observation-notes" maxlength="500" rows="3" placeholder="A few brown spots, still firm…"></textarea>
+        <button>Save check-in</button>
+      </form>
+    </details>
+    <div id="observations" class="observation-list"></div><button id="more-observations" hidden>More check-ins</button>
     <h2>Photo history</h2><div id="history" class="list"></div><button id="more-scans" hidden>More photos</button>
   </section>
   <noscript>Enable JavaScript to track your bananas.</noscript>
