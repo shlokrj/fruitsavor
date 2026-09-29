@@ -48,6 +48,8 @@ class APITests(unittest.TestCase):
         self.assertEqual(scan['captured_at'], '2026-01-01T18:00:00Z')
         self.assertEqual(scan['storage_method'], 'counter')
         self.assertEqual(scan['analysis']['status'], 'unvalidated')
+        self.assertEqual(scan['analysis']['method'], 'banana-grabcut-hsv-v2')
+        self.assertEqual(scan['analysis']['method'], self.client.get('/capabilities').json()['analysis_method'])
         self.assertEqual(scan['analysis']['prediction']['status'], 'unavailable')
         for key in ('days_remaining', 'ripeness_stage', 'confidence', 'freshness_score'):
             self.assertIsNone(scan['analysis']['prediction'][key])

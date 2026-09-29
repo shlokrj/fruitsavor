@@ -7,7 +7,7 @@ import warnings
 import cv2
 from PIL import Image, ImageOps, UnidentifiedImageError
 
-from fruitsavor.vision import analyze, overlay
+from fruitsavor.vision import METHOD, analyze, overlay
 from .schemas import AnalysisResult, ImageInfo
 
 
@@ -82,7 +82,7 @@ class AnalysisService:
         status = ('insufficient_image' if not result.features else
                   'review_required' if result.warnings else 'unvalidated')
         analysis = AnalysisResult(fruit_type=fruit_type,
-                                  method='banana-grabcut-hsv-v1', status=status,
+                                  method=METHOD, status=status,
                                   features=result.features or None, warnings=result.warnings)
         artifacts = dict(image=png_bytes(image),
                          mask=png_bytes(Image.fromarray(result.mask.astype('uint8') * 255)),

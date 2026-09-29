@@ -11,7 +11,7 @@ import cv2
 import numpy as np
 from PIL import Image, ImageDraw
 
-from fruitsavor.vision import analyze, overlay
+from fruitsavor.vision import METHOD, analyze, overlay
 
 
 def main():
@@ -67,7 +67,7 @@ def main():
     summary = dict(images=len(results), images_with_warnings=sum(bool(row['warnings']) for row in results),
                    warning_counts=dict(Counter(warning for row in results for warning in row['warnings'])),
                    images_without_features=sum(not row['features'] for row in results),
-                   method='plain-background GrabCut and exclusive HSV bins v1',
+                   method=METHOD,
                    versions=dict(opencv=cv2.__version__, numpy=np.__version__),
                    segmentation_accuracy=None, classification_accuracy=None, shelf_life_model=None,
                    limitations=['No annotated reference masks: segmentation accuracy is unknown.',

@@ -5,6 +5,8 @@ import cv2
 import numpy as np
 from PIL import Image, ImageOps
 
+METHOD = 'banana-grabcut-hsv-v2'
+
 
 @dataclass
 class Analysis:
@@ -98,7 +100,7 @@ def main():
     report = dict(features=result.features, warnings=result.warnings,
                   status='review_required' if result.warnings else 'unvalidated',
                   ripeness_stage=None, days_remaining=None,
-                  method='plain-background GrabCut and exclusive HSV bins v1')
+                  method=METHOD)
     (args.output / 'analysis.json').write_text(json.dumps(report, indent=2) + '\n')
     print(json.dumps(report, indent=2))
 

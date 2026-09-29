@@ -4,13 +4,17 @@ let token = '', selected = null, photo = null, fruitOffset = 0, scanOffset = 0;
 let limit = 10 * 1024 * 1024, busy = false;
 let previewURL = null;
 let observationOffset = 0;
+let editingObservation = null;
+let exportURL = null;
+let exportText = '';
 const urls = new Set();
 const storageNames = {counter: 'On the counter', refrigerator: 'In the refrigerator', other: 'Stored elsewhere', unknown: 'Storage not recorded'};
 function message(text = '') { $('message').textContent = text; }
 function show(section) {
   for (const name of ['login', 'collection', 'detail']) $(name).hidden = name !== section;
 }
-function releaseImages() { for (const url of urls) URL.revokeObjectURL(url); urls.clear(); }
+function releaseImages() { for (const url of urls) URL.revokeObjectURL(url); urls.clear(); clearExport(); }
+function clearExport() { if (exportURL) URL.revokeObjectURL(exportURL); exportURL = null; exportText = ''; $('copy-export').hidden = true; $('export-download').hidden = true; $('export-download').removeAttribute('href'); }
 function lock(value) {
   busy = value;
   document.querySelectorAll('button, input, select, textarea').forEach(el => { el.disabled = value; });
@@ -69,10 +73,44 @@ function clearPreview() {
 async function openFruit(fruit) {
   selected = fruit; clearPhoto(); $('fruit-name').textContent = fruit.name || 'Banana';
   $('fruit-storage').textContent = storageNames[fruit.storage_method];
-  $('observation-form').reset(); $('check-in').open = false; resetObservationTime();
+  $('fruit-settings').open = false; fillFruitDetails();
+  resetObservationForm(); $('check-in').open = false;
   $('observations').replaceChildren(); $('more-observations').hidden = true;
   releaseImages(); $('history').replaceChildren(); show('detail'); await loadHistory(true); await loadObservations(true);
 }
+function fillFruitDetails() {
+  $('edit-name').value = selected.name || '';
+  $('edit-storage').value = selected.storage_method;
+  $('edit-purchased').value = selected.purchased_on || '';
+  $('edit-group').value = selected.collection_group || '';
+}
+$('export-fruit').onclick = () => run(async () => {
+  const identifier = selected.id;
+  const blob = await (await request(`/fruit/${identifier}/export`)).blob();
+  clearExport(); exportText = await blob.text(); exportURL = URL.createObjectURL(blob); $('copy-export').hidden = false;
+  const link = $('export-download'); link.href = exportURL; link.download = `fruitsavor-${identifier}.json`; link.hidden = false;
+  message('Records ready. Tap Save records file. Photo files are not included.');
+});
+$('copy-export').onclick = () => run(async () => {
+  if (!navigator.clipboard) throw new Error('Copying requires HTTPS or a local browser. Use Save records file instead.');
+  await navigator.clipboard.writeText(exportText); message('Records copied. Paste them into a file to keep them.');
+});
+$('edit-fruit-form').onsubmit = event => {
+  event.preventDefault(); run(async () => {
+    selected = await (await request(`/fruit/${selected.id}`, {method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({
+      name:$('edit-name').value.trim(), storage_method:$('edit-storage').value,
+      purchased_on:$('edit-purchased').value || null, collection_group:$('edit-group').value.trim() || null
+    })})).json();
+    $('fruit-name').textContent = selected.name || 'Banana'; $('fruit-storage').textContent = storageNames[selected.storage_method];
+    fillFruitDetails(); $('fruit-settings').open = false; message('Fruit details saved.');
+    clearExport();
+  });
+};
+function resetObservationForm() {
+  editingObservation = null; $('observation-form').reset(); resetObservationTime();
+  $('save-observation').textContent = 'Save check-in'; $('cancel-observation').hidden = true;
+}
+$('cancel-observation').onclick = () => { resetObservationForm(); $('check-in').open = false; };
 function resetObservationTime() {
   const now = new Date(); $('observed').value = new Date(now - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 }
@@ -86,18 +124,39 @@ async function loadObservations(reset = false) {
     row.append(text('h3', `Your check-in · ${new Date(observation.observed_at).toLocaleString()}`));
     row.append(text('p', `${stages[observation.ripeness]} · ${answers[observation.acceptability]} for ${observation.intended_use === 'eat_fresh' ? 'eating fresh' : 'cooking or baking'}`));
     if (observation.notes) row.append(text('p', observation.notes));
+    const edit = text('button', 'Edit check-in'); edit.className = 'quiet';
+    edit.onclick = () => {
+      if (busy) return;
+      editingObservation = observation;
+      const observed = new Date(observation.observed_at);
+      $('observed').value = new Date(observed - observed.getTimezoneOffset() * 60000).toISOString().slice(0,16);
+      $('ripeness').value = observation.ripeness; $('intended-use').value = observation.intended_use;
+      $('acceptability').value = observation.acceptability; $('observation-notes').value = observation.notes || '';
+      $('save-observation').textContent = 'Save correction'; $('cancel-observation').hidden = false;
+      $('check-in').open = true; $('observation-notes').focus();
+    };
+    row.append(edit);
     $('observations').append(row);
   }
   observationOffset += page.items.length; $('more-observations').hidden = observationOffset >= page.total;
 }
 $('observation-form').onsubmit = event => {
   event.preventDefault(); run(async () => {
-    await request(`/fruit/${selected.id}/observations`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({
+    const values = {
       observed_at:new Date($('observed').value).toISOString(), ripeness:$('ripeness').value,
       intended_use:$('intended-use').value, acceptability:$('acceptability').value,
       notes:$('observation-notes').value.trim() || null
-    })});
-    $('observation-form').reset(); resetObservationTime(); $('check-in').open = false;
+    };
+    if (editingObservation) {
+      const original = new Date(editingObservation.observed_at);
+      const local = new Date(original - original.getTimezoneOffset() * 60000).toISOString().slice(0,16);
+      if ($('observed').value === local) values.observed_at = editingObservation.observed_at;
+    }
+    let path = `/fruit/${selected.id}/observations`;
+    if (editingObservation) { path += `/${editingObservation.id}`; values.expected_revision = editingObservation.revision; }
+    await request(path, {method:editingObservation ? 'PATCH' : 'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(values)});
+    clearExport();
+    resetObservationForm(); $('check-in').open = false;
     await loadObservations(true); message('Check-in saved.');
   });
 };

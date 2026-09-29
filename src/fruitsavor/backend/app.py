@@ -16,12 +16,13 @@ from pydantic import ValidationError
 from starlette.responses import FileResponse, JSONResponse
 
 from .config import Settings
+from fruitsavor.vision import METHOD
 from .middleware import RequestLimits
 from .schemas import (CaptureMetadata, FruitCreate, FruitPage, FruitPatch, FruitRecord,
                       FruitType, ScanPage, ScanRecord, StorageMethod)
 from .service import AnalysisBusyError, AnalysisService, ImageInputError
-from .store import NotFoundError, Store
-from .schemas import ObservationCreate, ObservationPage, ObservationRecord
+from .store import ConflictError, NotFoundError, Store
+from .schemas import ObservationCreate, ObservationPage, ObservationRecord, ObservationUpdate
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +81,10 @@ def create_app(settings: Settings | None = None):
     async def not_found(request, exc):
         return JSONResponse({'detail': str(exc)}, status_code=404)
 
+    @app.exception_handler(ConflictError)
+    async def conflicting_update(request, exc):
+        return JSONResponse({'detail': str(exc)}, status_code=409)
+
     @app.exception_handler(ImageInputError)
     async def invalid_image(request, exc):
         return JSONResponse({'detail': str(exc)}, status_code=exc.status)
@@ -102,7 +107,7 @@ def create_app(settings: Settings | None = None):
     @router.get('/capabilities', tags=['system'])
     def capabilities():
         return dict(supported_fruits=list(service.handlers),
-                    analysis_method='banana-grabcut-hsv-v1',
+                    analysis_method=METHOD,
                     fruit_detection=False, visual_features=True,
                     ripeness_prediction=False, shelf_life_prediction=False,
                     freshness_score=False, validation_status='exploratory',
@@ -123,6 +128,11 @@ def create_app(settings: Settings | None = None):
     @router.get('/fruit/{fruit_id}', response_model=FruitRecord, tags=['fruit'])
     def get_fruit(fruit_id: UUID):
         return store.get_fruit(str(fruit_id))
+
+    @router.get('/fruit/{fruit_id}/export', tags=['fruit'])
+    def export_fruit(fruit_id: UUID):
+        return JSONResponse(store.export_fruit(str(fruit_id)), headers={
+            'Content-Disposition': f'attachment; filename="fruitsavor-{fruit_id}.json"'})
 
     @router.patch('/fruit/{fruit_id}', response_model=FruitRecord, tags=['fruit'])
     def update_fruit(fruit_id: UUID, patch: FruitPatch):
@@ -195,6 +205,16 @@ def create_app(settings: Settings | None = None):
     def delete_observation(fruit_id: UUID, observation_id: UUID):
         store.delete_observation(str(fruit_id), str(observation_id))
         return Response(status_code=204)
+
+    @router.patch('/fruit/{fruit_id}/observations/{observation_id}', response_model=ObservationRecord,
+                  tags=['observations'])
+    def update_observation(fruit_id: UUID, observation_id: UUID, observation: ObservationUpdate):
+        return store.update_observation(str(fruit_id), str(observation_id), observation.model_dump(mode='json'))
+
+    @router.get('/fruit/{fruit_id}/observations/{observation_id}/revisions',
+                response_model=list[ObservationRecord], tags=['observations'])
+    def observation_revisions(fruit_id: UUID, observation_id: UUID):
+        return store.observation_revisions(str(fruit_id), str(observation_id))
 
     @router.get('/scans/{scan_id}', response_model=ScanRecord, tags=['scans'])
     def get_scan(scan_id: UUID):

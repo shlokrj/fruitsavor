@@ -61,7 +61,7 @@ python -m fruitsavor.vision banana.jpg --output reports/my-banana
 
 Features include foreground area, mean brightness/saturation, and exclusive green-like, yellow-like, brown-like, black-like and other pixel proportions. These HSV thresholds are uncalibrated visual heuristics; shadows and lighting affect the measurements. Background and area warnings flag some failures, but absence of a warning does not establish a correct mask. Blank images return no features.
 
-No annotated reference masks or verified specimen groups are available yet, so segmentation accuracy and classifier performance remain unmeasured. The next milestone is annotated mask validation and a defensible grouped evaluation dataset before training.
+Human-reviewed evaluation masks and verified specimen groups are still pending. Assistant-drawn development references are exploratory diagnostics; they do not establish independent segmentation accuracy or classifier performance.
 
 Current exploratory run: 818 images processed; 106 flagged for review. These counts describe processing and warnings, not predictive accuracy. The development-only shadow-seed refinement is covered by a synthetic connected-shadow test and raised the assistant-reference pilot's mean IoU from 0.873 to 0.916; human-reviewed evaluation remains pending.
 
@@ -81,6 +81,8 @@ The blue-and-cream interface includes an expandable add-fruit form and a photo p
 
 Each banana also supports dated personal check-ins: observed ripeness, intended use (fresh or cooking), whether you would use it for that purpose, and optional notes. Reports are explicitly user-reported and separate from image analysis. They are not food-safety assessments or validated shelf-life endpoints; no days-left targets are inferred. The fruit's current storage setting is snapshotted when the report is saved, including for backdated entries.
 
+Expand Fruit details to edit its name, storage, purchase date or purchase-group label. Use the same group for fruit purchased together; these labels remain user-declared, not verified evaluation groups. Edit check-in preserves prior revisions and rejects stale corrections. Download records exports that fruit's metadata, scan measurements, check-ins and previous revisions as JSON; photo files are excluded, so this is not a full backup.
+
 When a server token is configured, enter it in the interface; it stays only in tab memory and must be entered again after reloading. Images are fetched with the same authorization as records. The application shell is public but fruit records and photos remain protected. For phone testing, serve through an HTTPS endpoint reachable from the phone; the computer’s loopback URL is only accessible on that computer.
 
 | Endpoint | Behavior |
@@ -89,10 +91,13 @@ When a server token is configured, enter it in the interface; it stays only in t
 | `POST /analyze` | Upload and save a standalone analysis |
 | `POST /fruit`, `GET /fruit` | Create and list tracked fruit |
 | `GET`, `PATCH`, `DELETE /fruit/{id}` | Read, edit or delete fruit and its scans |
+| `GET /fruit/{id}/export` | Download a consistent snapshot of one fruit's records without image files |
 | `POST /fruit/{id}/scan` | Upload a scan for existing fruit |
 | `GET /fruit/{id}/history` | Scan history, newest capture first |
 | `POST`, `GET /fruit/{id}/observations` | Save and list personal check-ins, newest observation first |
 | `DELETE /fruit/{id}/observations/{observation_id}` | Remove an incorrect check-in |
+| `PATCH /fruit/{id}/observations/{observation_id}` | Correct a check-in with its `expected_revision`; stale edits return 409 |
+| `GET /fruit/{id}/observations/{observation_id}/revisions` | Original and corrected versions in revision order |
 | `GET /scans`, `GET /scans/{id}` | List or retrieve saved analyses |
 | `DELETE /scans/{id}` | Delete a scan and its artifacts |
 | `GET /scans/{id}/artifacts/{image,mask,overlay}` | Retrieve normalized PNG artifacts |
@@ -108,7 +113,9 @@ Uploads accept JPEG, PNG or static WebP, up to 10 MiB and 20 million source pixe
 
 Analysis returns `unvalidated`, `review_required` or `insufficient_image`. Predictions explicitly return `status: unavailable`; ripeness, freshness, confidence and days remaining are null. A blank image returns no features. Concurrent analysis receives `503` with `Retry-After`; other requests remain available. POST requests create new records, so retries after an uncertain network outcome may create duplicates.
 
-Database schema v2 upgrades existing v1 databases on startup without replacing fruit or scan records. Check-ins persist across restarts and are deleted with their fruit. A future training dataset still needs audited specimen/batch identity, a predefined rejection rubric, and explicit censoring; personal check-ins alone do not meet that standard.
+Database schema v3 upgrades existing v1/v2 databases on startup without replacing fruit or scan records. Check-ins and their revisions persist across restarts and are deleted with their fruit. A future training dataset still needs audited specimen/batch identity, a predefined rejection rubric, and explicit censoring; personal check-ins alone do not meet that standard.
+
+New scans and exploration reports identify the current shadow-refined algorithm as `banana-grabcut-hsv-v2`. Existing results retain their recorded method labels. Earlier `v1` records may include either pre-refinement or post-refinement behavior and should not be pooled as a single verified algorithm version.
 
 Configuration uses exported environment variables:
 

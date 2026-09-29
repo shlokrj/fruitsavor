@@ -9,6 +9,7 @@ FruitType = Literal['banana']
 StorageMethod = Literal['counter', 'refrigerator', 'other', 'unknown']
 Ratio = Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)]
 Temperature = Annotated[float, Field(ge=-50, le=60, allow_inf_nan=False)]
+CollectionGroup = Annotated[str, Field(min_length=1, max_length=100)]
 
 
 class Contract(BaseModel):
@@ -20,6 +21,7 @@ class FruitCreate(Contract):
     name: Annotated[str, Field(min_length=1, max_length=100)] | None = None
     storage_method: StorageMethod = 'unknown'
     purchased_on: date | None = None
+    collection_group: CollectionGroup | None = None
 
     @field_validator('purchased_on')
     @classmethod
@@ -33,6 +35,7 @@ class FruitPatch(Contract):
     name: Annotated[str, Field(min_length=1, max_length=100)] | None = None
     storage_method: StorageMethod | None = None
     purchased_on: date | None = None
+    collection_group: CollectionGroup | None = None
 
     @field_validator('storage_method')
     @classmethod
@@ -100,6 +103,12 @@ class ObservationRecord(ObservationCreate):
     created_at: AwareDatetime
     source: Literal['user_reported']
     storage_method: StorageMethod
+    revision: int = Field(default=1, ge=1)
+    updated_at: AwareDatetime | None = None
+
+
+class ObservationUpdate(ObservationCreate):
+    expected_revision: int = Field(ge=1, strict=True)
 
 
 class ObservationPage(Contract):

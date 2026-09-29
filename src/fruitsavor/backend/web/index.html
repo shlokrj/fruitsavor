@@ -28,6 +28,17 @@
   </section>
   <section id="detail" hidden>
     <button id="back" class="quiet">← Your bananas</button><h1 id="fruit-name"></h1><p id="fruit-storage"></p>
+    <details id="fruit-settings" class="check-in"><summary>Fruit details <span>Name, storage &amp; purchase group</span></summary>
+      <form id="edit-fruit-form" class="panel">
+        <label for="edit-name">Name</label><input id="edit-name" maxlength="100" required>
+        <label for="edit-storage">Stored in</label><select id="edit-storage"><option value="counter">Counter</option><option value="refrigerator">Refrigerator</option><option value="other">Somewhere else</option><option value="unknown">Not recorded</option></select>
+        <label for="edit-purchased">Purchased on (optional)</label><input id="edit-purchased" type="date">
+        <label for="edit-group">Purchase group (optional)</label><input id="edit-group" maxlength="100" placeholder="Monday grocery trip">
+        <p class="hint">Use the same group for bananas bought together. Keep each banana’s own name.</p>
+        <button>Save fruit details</button>
+      </form>
+      <button id="export-fruit" class="quiet">Prepare records</button><a id="export-download" class="download-link" hidden>Save records file</a><button id="copy-export" class="quiet" hidden>Copy records</button><p class="hint">Includes check-ins, corrections and scan measurements. Photo files aren’t included. If your browser can’t save the file, use Copy records.</p>
+    </details>
     <form id="scan-form" class="panel">
       <p class="eyebrow">ONE BANANA. ONE PHOTO.</p><h2>How’s it looking?</h2><p>Whole banana. Light background. Even light.</p>
       <div class="photo-actions"><label class="file-button" for="camera">Take a photo<input id="camera" type="file" accept="image/jpeg,image/png,image/webp" capture="environment"></label>
@@ -46,7 +57,7 @@
         <label for="intended-use">Intended use</label><select id="intended-use" required><option value="">Choose a use</option><option value="eat_fresh">Eating fresh</option><option value="cooking">Cooking or baking</option></select>
         <label for="acceptability">Would you use it for that?</label><select id="acceptability" required><option value="">Choose an answer</option><option value="acceptable">Yes</option><option value="unacceptable">No</option><option value="unsure">Not sure</option></select>
         <label for="observation-notes">Notes (optional)</label><textarea id="observation-notes" maxlength="500" rows="3" placeholder="A few brown spots, still firm…"></textarea>
-        <button>Save check-in</button>
+        <button id="save-observation">Save check-in</button><button id="cancel-observation" type="button" class="quiet" hidden>Cancel editing</button>
       </form>
     </details>
     <div id="observations" class="observation-list"></div><button id="more-observations" hidden>More check-ins</button>

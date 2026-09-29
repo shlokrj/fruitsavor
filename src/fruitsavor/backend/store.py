@@ -11,6 +11,10 @@ class NotFoundError(Exception):
     pass
 
 
+class ConflictError(Exception):
+    pass
+
+
 def now():
     return datetime.now(timezone.utc).isoformat()
 
@@ -36,7 +40,7 @@ class Store:
         with self.connect() as db:
             db.execute('PRAGMA journal_mode = WAL')
             version = db.execute('PRAGMA user_version').fetchone()[0]
-            if version not in (0, 1, 2):
+            if version not in (0, 1, 2, 3):
                 raise RuntimeError(f'Unsupported database schema version: {version}')
             db.executescript('''
                 BEGIN;
@@ -69,7 +73,14 @@ class Store:
                     result_json TEXT NOT NULL
                 );
                 CREATE INDEX IF NOT EXISTS observations_history ON observations(fruit_id, observed_at DESC, id);
-                PRAGMA user_version = 2;
+                CREATE TABLE IF NOT EXISTS observation_revisions (
+                    observation_id TEXT NOT NULL REFERENCES observations(id) ON DELETE CASCADE,
+                    revision INTEGER NOT NULL,
+                    result_json TEXT NOT NULL,
+                    PRIMARY KEY (observation_id, revision)
+                );
+            ''' + ('ALTER TABLE fruits ADD COLUMN collection_group TEXT;' if version < 3 else '') + '''
+                PRAGMA user_version = 3;
                 COMMIT;
             ''')
 
@@ -84,9 +95,9 @@ class Store:
     def create_fruit(self, values):
         identifier, timestamp = str(uuid4()), now()
         with self.connect() as db:
-            db.execute('INSERT INTO fruits VALUES (?, ?, ?, ?, ?, ?, ?)',
+            db.execute('INSERT INTO fruits VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
                        (identifier, values['fruit_type'], values.get('name'), values['storage_method'],
-                        values.get('purchased_on'), timestamp, timestamp))
+                        values.get('purchased_on'), timestamp, timestamp, values.get('collection_group')))
             return self._fruit(db, identifier)
 
     def get_fruit(self, fruit_id):
@@ -102,7 +113,7 @@ class Store:
             return dict(items=[dict(row) for row in rows], total=total, limit=limit, offset=offset)
 
     def update_fruit(self, fruit_id, values):
-        allowed = {'name', 'storage_method', 'purchased_on'}
+        allowed = {'name', 'storage_method', 'purchased_on', 'collection_group'}
         if set(values) - allowed:
             raise ValueError('Unsupported fruit update')
         with self.connect() as db:
@@ -200,3 +211,61 @@ class Store:
                               (observation_id, fruit_id)).rowcount:
                 raise NotFoundError('Observation not found')
             db.execute('UPDATE fruits SET updated_at=? WHERE id=?', (now(), fruit_id))
+
+    def update_observation(self, fruit_id, observation_id, values):
+        values = dict(values)
+        expected = values.pop('expected_revision')
+        with self.connect() as db:
+            db.execute('BEGIN IMMEDIATE')
+            row = db.execute('SELECT result_json FROM observations WHERE id=? AND fruit_id=?',
+                             (observation_id, fruit_id)).fetchone()
+            if row is None:
+                raise NotFoundError('Observation not found')
+            previous = json.loads(row[0])
+            revision = previous.get('revision', 1)
+            if expected != revision:
+                raise ConflictError('This check-in changed. Reopen it before editing again.')
+            values['observed_at'] = datetime.fromisoformat(values['observed_at']).astimezone(
+                timezone.utc).isoformat(timespec='microseconds')
+            record = dict(previous, **values, revision=revision + 1, updated_at=now())
+            db.execute('INSERT INTO observation_revisions VALUES (?, ?, ?)',
+                       (observation_id, revision, row[0]))
+            db.execute('UPDATE observations SET observed_at=?, result_json=? WHERE id=?',
+                       (record['observed_at'], json.dumps(record, allow_nan=False), observation_id))
+            db.execute('UPDATE fruits SET updated_at=? WHERE id=?', (record['updated_at'], fruit_id))
+            return record
+
+    def observation_revisions(self, fruit_id, observation_id):
+        with self.connect() as db:
+            db.execute('BEGIN')
+            row = db.execute('SELECT result_json FROM observations WHERE id=? AND fruit_id=?',
+                             (observation_id, fruit_id)).fetchone()
+            if row is None:
+                raise NotFoundError('Observation not found')
+            history = db.execute('SELECT result_json FROM observation_revisions WHERE observation_id=? '
+                                 'ORDER BY revision', (observation_id,)).fetchall()
+            return [json.loads(item[0]) for item in history] + [json.loads(row[0])]
+
+    def export_fruit(self, fruit_id):
+        with self.connect() as db:
+            db.execute('BEGIN')
+            fruit = self._fruit(db, fruit_id)
+            scans = db.execute('SELECT result_json FROM scans WHERE fruit_id=? ORDER BY captured_at, id',
+                               (fruit_id,)).fetchall()
+            observations = db.execute('SELECT result_json FROM observations WHERE fruit_id=? ORDER BY observed_at, id',
+                                      (fruit_id,)).fetchall()
+            revisions = db.execute('SELECT r.result_json FROM observation_revisions r JOIN observations o '
+                                   'ON o.id=r.observation_id WHERE o.fruit_id=? ORDER BY r.observation_id,r.revision',
+                                   (fruit_id,)).fetchall()
+            def observation_records(rows):
+                records = [json.loads(row[0]) for row in rows]
+                for record in records:
+                    record.setdefault('revision', 1)
+                    record.setdefault('updated_at', None)
+                return records
+            return dict(export_version=1, exported_at=now(), fruit=fruit,
+                        scans=[json.loads(row[0]) for row in scans],
+                        observations=observation_records(observations),
+                        previous_observation_revisions=observation_records(revisions),
+                        image_files_included=False, collection_group_source='user_declared',
+                        evaluation_ready=False, shelf_life_targets=None)
