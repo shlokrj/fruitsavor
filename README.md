@@ -77,7 +77,7 @@ The API listens at `http://127.0.0.1:8000`; interactive documentation is at `/do
 
 Open `/` for the mobile web preview: add a named banana, take or choose a photo, record its capture time, and revisit its photo history. Camera selection depends on the phone/browser; a separate photo-library picker is also available. HEIC is not supported yet. Ripeness, best-to-eat timing and days remaining are explicitly unavailable. This is a browser preview, not an installable native app or offline app.
 
-The blue-and-cream interface includes an expandable add-fruit form and a photo preview with removal before saving. Display type uses locally bundled [Fredoka](https://github.com/google/fonts/tree/main/ofl/fredoka); its SIL Open Font License is included beside the font. No external font requests are made.
+The white interface uses fruit-colored accents, an expandable add-fruit form, and photo previews with removal before saving. The wordmark uses locally bundled [Fredoka](https://github.com/google/fonts/tree/main/ofl/fredoka) with an orange replacing the “o”; its SIL Open Font License is included beside the font. No external font requests are made.
 
 Each banana also supports dated personal check-ins: observed ripeness, intended use (fresh or cooking), whether you would use it for that purpose, and optional notes. Reports are explicitly user-reported and separate from image analysis. They are not food-safety assessments or validated shelf-life endpoints; no days-left targets are inferred. The fruit's current storage setting is snapshotted when the report is saved, including for backdated entries.
 

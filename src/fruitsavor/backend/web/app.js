@@ -48,13 +48,21 @@ async function loadFruit(reset = false) {
   const page = await (await request(`/fruit?limit=20&offset=${reset ? 0 : fruitOffset}`)).json();
   if (reset) { fruitOffset = 0; $('fruit-list').replaceChildren(); }
   for (const fruit of page.items) {
-    const button = text('button', fruit.name || 'Banana'); button.className = 'fruit';
-    button.append(text('small', `${fruit.scan_count} ${fruit.scan_count === 1 ? 'photo' : 'photos'} · ${storageNames[fruit.storage_method]}`));
+    const button = document.createElement('button'); button.className = 'fruit';
+    const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    icon.setAttribute('viewBox','0 0 120 120'); icon.setAttribute('aria-hidden','true'); icon.classList.add('fruit-icon');
+    const peel = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    peel.setAttribute('d','M29 25 C25 62 56 91 94 68 C88 91 64 103 42 93 C16 82 9 48 23 25 Z');
+    peel.setAttribute('fill','#f4c947'); peel.setAttribute('stroke','#bd9025'); peel.setAttribute('stroke-width','2');
+    const stem = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    stem.setAttribute('d','M23 25 L24 16 L31 17 L29 26'); stem.setAttribute('fill','#6b7541');
+    icon.append(peel, stem); button.append(icon);
+    const label = text('span', fruit.name || 'Banana'); label.className = 'fruit-label';
+    label.append(text('small', `${fruit.scan_count} ${fruit.scan_count === 1 ? 'photo' : 'photos'} · ${storageNames[fruit.storage_method]}`)); button.append(label);
     button.onclick = () => run(() => openFruit(fruit)); $('fruit-list').append(button);
   }
   fruitOffset += page.items.length; $('more-fruit').hidden = fruitOffset >= page.total;
-  $('fruit-count').textContent = page.total ? String(page.total).padStart(2, '0') : '';
-  if (!page.total) { const empty = text('p', 'A fresh start. Add your first banana.'); empty.className = 'empty'; $('fruit-list').append(empty); }
+  if (!page.total) { const empty = text('p', 'No fruit added yet.'); empty.className = 'empty'; $('fruit-list').append(empty); }
 }
 async function connect() {
   const capabilities = await (await request('/capabilities')).json(); limit = capabilities.max_upload_bytes;
@@ -173,12 +181,12 @@ async function loadHistory(reset = false) {
       const img = document.createElement('img'); img.src = url; img.alt = 'Saved banana photo'; card.append(img);
     } catch (error) { if (!selected) throw error; card.append(text('p', 'Photo could not load. Reopen this banana to try again.')); }
     const needsNewPhoto = scan.analysis.status === 'insufficient_image';
-    card.append(text('p', needsNewPhoto ? 'Could not isolate the banana. Try another photo with a plain background.' : 'Photo saved. This scan does not yet provide a ripeness or days-left estimate.'));
-    if (scan.analysis.warnings.length && !needsNewPhoto) card.append(text('p', 'Image analysis flagged possible background or lighting issues. Try more even light and a plain background.'));
+    if (needsNewPhoto) card.append(text('p', 'Fruit wasn’t clear. Try a plain background.'));
+    if (scan.analysis.warnings.length && !needsNewPhoto) card.append(text('p', 'Lighting or background may affect this photo’s analysis.'));
     $('history').append(card);
   }
   scanOffset += page.items.length; $('more-scans').hidden = scanOffset >= page.total;
-  if (!page.total) $('history').append(text('p', 'Your first photo will appear here.'));
+  if (!page.total) $('history').append(text('p', 'No photos yet.'));
 }
 $('login-form').onsubmit = event => { event.preventDefault(); run(async () => { token = $('token').value.trim(); $('token').value = ''; await connect(); }); };
 $('add-form').onsubmit = event => {
@@ -208,7 +216,7 @@ $('scan-form').onsubmit = event => {
     form.append('captured_at', new Date($('captured').value).toISOString());
     message('Saving your photo…');
     await request(`/fruit/${selected.id}/scan`, {method: 'POST', body: form});
-    clearPhoto(); await loadHistory(true); message('Scan saved.');
+    clearPhoto(); await loadHistory(true); message('Photo saved.');
   });
 };
 $('back').onclick = () => run(async () => { await loadFruit(true); selected = null; clearPhoto(); releaseImages(); $('history').replaceChildren(); show('collection'); });

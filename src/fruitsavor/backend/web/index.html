@@ -3,32 +3,31 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#0751bf">
+  <meta name="theme-color" content="#ffffff">
   <title>FruitSavor</title>
   <link rel="stylesheet" href="/app/style.css">
   <script src="/app/app.js" defer></script>
 </head>
 <body>
-<header><a href="/" aria-label="FruitSavor home">fruit<span>savor</span><span class="brand-dot" aria-hidden="true">✳</span></a><span class="header-note">a little less waste.</span><button id="disconnect" hidden>Disconnect</button></header>
+<header><a class="wordmark" href="/" aria-label="FruitSavor home"><span aria-hidden="true">fruit<span class="wordmark-light">sav<span class="orange-letter"></span>r</span></span></a><button id="disconnect" hidden>Disconnect</button></header>
 <main>
   <p id="message" role="status" aria-live="polite"></p>
   <section id="login" hidden>
-    <p class="eyebrow">WELCOME TO FRUITSAVOR</p><h1>good fruit.<br>good days.</h1><p>Enter your server access token to open your collection. It stays in this tab’s memory until you leave.</p>
+    <h1>Your fruit, all here.</h1><p>Enter your access token to connect.</p>
     <form id="login-form"><label for="token">Access token</label><input id="token" type="password" required autocomplete="off"><button>Connect</button></form>
   </section>
   <section id="collection" hidden>
-    <div class="intro"><p class="eyebrow">YOUR DAILY FRUIT CHECK-IN</p><h1>good fruit.<br>good days.</h1><p>A little attention. A little less waste.</p></div>
-    <div class="section-heading"><h2>Your bananas <span id="fruit-count"></span></h2><button id="toggle-add" class="small-button" aria-expanded="false" aria-controls="add-form">+ Add banana</button></div>
+    <div class="section-heading"><h1>Your fruit</h1><button id="toggle-add" aria-expanded="false" aria-controls="add-form">+ Add fruit</button></div>
     <form id="add-form" class="panel" hidden>
-      <p class="form-note">One name for each banana. Follow the same fruit over time.</p><label for="name">Name</label><input id="name" maxlength="100" placeholder="Kitchen banana" required>
+      <h2>Add a banana</h2><p class="hint">Bananas are supported for now.</p><label for="name">Name</label><input id="name" maxlength="100" placeholder="Kitchen banana" required>
       <label for="storage">Stored in</label><select id="storage"><option value="counter">Counter</option><option value="refrigerator">Refrigerator</option><option value="other">Somewhere else</option><option value="unknown">Not recorded</option></select>
       <button>Add to your fruit</button>
     </form>
     <div id="fruit-list" class="list"></div><button id="more-fruit" hidden>More bananas</button>
   </section>
   <section id="detail" hidden>
-    <button id="back" class="quiet">← Your bananas</button><h1 id="fruit-name"></h1><p id="fruit-storage"></p>
-    <details id="fruit-settings" class="check-in"><summary>Fruit details <span>Name, storage &amp; purchase group</span></summary>
+    <button id="back" class="quiet">← Your fruit</button><h1 id="fruit-name"></h1><p id="fruit-storage"></p>
+    <details id="fruit-settings" class="check-in"><summary>Edit details</summary>
       <form id="edit-fruit-form" class="panel">
         <label for="edit-name">Name</label><input id="edit-name" maxlength="100" required>
         <label for="edit-storage">Stored in</label><select id="edit-storage"><option value="counter">Counter</option><option value="refrigerator">Refrigerator</option><option value="other">Somewhere else</option><option value="unknown">Not recorded</option></select>
@@ -40,18 +39,18 @@
       <button id="export-fruit" class="quiet">Prepare records</button><a id="export-download" class="download-link" hidden>Save records file</a><button id="copy-export" class="quiet" hidden>Copy records</button><p class="hint">Includes check-ins, corrections and scan measurements. Photo files aren’t included. If your browser can’t save the file, use Copy records.</p>
     </details>
     <form id="scan-form" class="panel">
-      <p class="eyebrow">ONE BANANA. ONE PHOTO.</p><h2>How’s it looking?</h2><p>Whole banana. Light background. Even light.</p>
+      <h2>Add a photo</h2><p>Use a light background and keep the whole fruit in view.</p>
       <div class="photo-actions"><label class="file-button" for="camera">Take a photo<input id="camera" type="file" accept="image/jpeg,image/png,image/webp" capture="environment"></label>
       <label class="file-button secondary" for="library">Choose from library<input id="library" type="file" accept="image/jpeg,image/png,image/webp"></label></div>
       <div id="photo-preview" hidden><img id="preview-image" alt="Selected photo to save"><button id="remove-photo" type="button" class="quiet">Remove photo</button></div>
       <p id="chosen" class="hint">JPEG, PNG or WebP · up to 10 MB. Convert HEIC first.</p>
-      <label for="captured">Photo taken at <span class="label-note">(your local time)</span></label><input id="captured" type="datetime-local" required><p class="hint">Older photo? Set the time it was taken.</p>
-      <button id="save-scan" disabled>Save scan</button>
+      <label for="captured">Taken at <span class="label-note">(local time)</span></label><input id="captured" type="datetime-local" required>
+      <button id="save-scan" disabled>Save photo</button>
     </form>
-    <div class="notice"><h2>Best to eat &amp; days left <span>Coming later</span></h2><p>Photos for now. Ripeness and days-left estimates aren’t available yet.</p></div>
-    <details id="check-in" class="check-in"><summary>Add a check-in <span>Your own observations</span></summary>
+    <p class="notice">Ripeness and days-left estimates aren’t available yet.</p>
+    <details id="check-in" class="check-in"><summary>Add a check-in</summary>
       <form id="observation-form" class="panel">
-        <p>What do you notice today? These are your observations, not an app prediction or a food-safety assessment.</p>
+        <p>Record what you notice about this fruit.</p>
         <label for="observed">Checked at (your local time)</label><input id="observed" type="datetime-local" required>
         <label for="ripeness">Ripeness</label><select id="ripeness" required><option value="">Choose a stage</option><option value="unripe">Unripe</option><option value="ripe">Ripe</option><option value="overripe">Overripe</option><option value="unsure">Not sure</option></select>
         <label for="intended-use">Intended use</label><select id="intended-use" required><option value="">Choose a use</option><option value="eat_fresh">Eating fresh</option><option value="cooking">Cooking or baking</option></select>
@@ -61,10 +60,9 @@
       </form>
     </details>
     <div id="observations" class="observation-list"></div><button id="more-observations" hidden>More check-ins</button>
-    <h2>Photo history</h2><div id="history" class="list"></div><button id="more-scans" hidden>More photos</button>
+    <h2>Photos</h2><div id="history" class="list"></div><button id="more-scans" hidden>More photos</button>
   </section>
   <noscript>Enable JavaScript to track your bananas.</noscript>
 </main>
-<footer><span>fruit, followed.</span><span>Bananas first · Early preview</span></footer>
 </body>
 </html>
