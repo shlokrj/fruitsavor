@@ -16,7 +16,18 @@
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
-body { margin: 0; }
+body {
+  margin: 0;
+  min-height: 100svh;
+  background:
+    radial-gradient(ellipse at 0% 5%, #ffcfdf88, transparent 48%),
+    radial-gradient(ellipse at 95% 8%, #dfd0ff99, transparent 46%),
+    radial-gradient(ellipse at 100% 58%, #c9eaffaa, transparent 48%),
+    radial-gradient(ellipse at 10% 100%, #d1f4d9bb, transparent 48%),
+    radial-gradient(ellipse at 50% 95%, #fff0b8aa, transparent 46%),
+    #fff;
+  background-attachment: fixed;
+}
 header, main { width: min(100%, 1000px); margin: auto; padding: 30px 36px; }
 header { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }
 .wordmark { color: #29372e; text-decoration: none; font: 600 32px/1 Fredoka, sans-serif; letter-spacing: -1.1px; }
@@ -42,8 +53,8 @@ label { display: block; font-size: 13px; font-weight: 550; }
 .panel .quiet { min-width: auto; }
 #add-form { max-width: 560px; background: #f4f7ee; }
 #fruit-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-bottom: 24px; }
-.fruit { display: flex; align-items: center; gap: 14px; text-align: left; padding: 22px; min-height: 142px; background: #fff8df; border: 1px solid #f2eacb; color: #34372a; border-radius: 16px; }
-.fruit-icon { width: 78px; height: 86px; flex-shrink: 0; }
+.fruit { display: flex; align-items: center; gap: 14px; text-align: left; padding: 22px; min-height: 142px; background: #ffffffbd; border: 1px solid #ffffff; color: #34372a; border-radius: 16px; }
+.fruit-icon { width: 96px; height: 96px; object-fit: contain; flex-shrink: 0; }
 .fruit-label { font-size: 18px; font-weight: 600; overflow-wrap: anywhere; }
 .fruit small { display: block; font-size: 12px; font-weight: 400; color: #6a6c56; margin-top: 7px; line-height: 1.6; }
 .empty { padding: 36px 0; }
@@ -90,7 +101,7 @@ label { display: block; font-size: 13px; font-weight: 550; }
   .wordmark { font-size: 30px; }
   #fruit-list { grid-template-columns: 1fr; gap: 14px; }
   .fruit { min-height: 128px; padding: 18px; }
-  .fruit-icon { width: 67px; }
+  .fruit-icon { width: 82px; height: 82px; }
   .section-heading { gap: 10px; margin-bottom: 24px; }
   .section-heading button { padding: 10px 14px; }
   .panel { padding: 20px; }

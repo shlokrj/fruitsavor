@@ -149,7 +149,7 @@ class APITests(unittest.TestCase):
             self.assertEqual(shell.status_code, 200)
             self.assertIn("frame-ancestors 'none'", shell.headers['content-security-policy'])
             self.assertNotIn('test-token-only', shell.text)
-            for asset in ('app.js', 'style.css', 'fredoka.ttf', 'OFL.txt'):
+            for asset in ('app.js', 'style.css', 'fredoka.ttf', 'OFL.txt', 'banana-glossy.png'):
                 self.assertEqual(secured.get('/app/' + asset).status_code, 200)
             self.assertEqual(secured.get('/app/anything-else').status_code, 401)
             self.assertEqual(secured.get('/health').status_code, 200)

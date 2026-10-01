@@ -49,14 +49,9 @@ async function loadFruit(reset = false) {
   if (reset) { fruitOffset = 0; $('fruit-list').replaceChildren(); }
   for (const fruit of page.items) {
     const button = document.createElement('button'); button.className = 'fruit';
-    const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    icon.setAttribute('viewBox','0 0 120 120'); icon.setAttribute('aria-hidden','true'); icon.classList.add('fruit-icon');
-    const peel = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    peel.setAttribute('d','M29 25 C25 62 56 91 94 68 C88 91 64 103 42 93 C16 82 9 48 23 25 Z');
-    peel.setAttribute('fill','#f4c947'); peel.setAttribute('stroke','#bd9025'); peel.setAttribute('stroke-width','2');
-    const stem = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    stem.setAttribute('d','M23 25 L24 16 L31 17 L29 26'); stem.setAttribute('fill','#6b7541');
-    icon.append(peel, stem); button.append(icon);
+    const icon = document.createElement('img');
+    icon.src = '/app/banana-glossy.png'; icon.alt = ''; icon.className = 'fruit-icon';
+    icon.width = 96; icon.height = 96; button.append(icon);
     const label = text('span', fruit.name || 'Banana'); label.className = 'fruit-label';
     label.append(text('small', `${fruit.scan_count} ${fruit.scan_count === 1 ? 'photo' : 'photos'} · ${storageNames[fruit.storage_method]}`)); button.append(label);
     button.onclick = () => run(() => openFruit(fruit)); $('fruit-list').append(button);
