@@ -125,6 +125,18 @@ Configuration uses exported environment variables:
 
 `fruitsavor-api --host 0.0.0.0` requires a token. Use TLS and appropriate hosting controls before exposing it beyond a trusted local environment. There are no user accounts or per-user isolation. Preserve the data directory; use SQLite's online backup mechanism or stop the server before copying its database. Deleting fruit also deletes its scans and artifacts; scans have no automatic expiry.
 
+## Full backups
+
+Create a consistent backup, including stored photos and check-in revisions, while the app runs:
+
+```sh
+fruitsavor-backup data/backup.sqlite3
+```
+
+Uses `FRUITSAVOR_DATABASE` or `--source path/to/database.sqlite3`. The destination directory must exist; existing files are never overwritten. Backups are private local files and include all personal records. SQLite integrity and record references are checked before the completed backup appears.
+
+To use a backup, stop the API and start it with `FRUITSAVOR_DATABASE` pointing to the backup file (or a separate copy). Keep the original database until you have checked the restored records and photos. This is a full database snapshot, unlike the per-fruit JSON export.
+
 ## Reference-mask validation
 
 Prepare the fixed annotation subset after running dataset preparation, review and exploration:
