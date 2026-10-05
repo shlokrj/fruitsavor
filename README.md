@@ -21,14 +21,3 @@ Currently a mobile web prototype with photo history, personal check-ins, and exp
 | Storage | SQLite |
 | Image processing | OpenCV, NumPy, Pillow |
 | Testing | unittest, HTTPX |
-
-## Run locally
-
-```sh
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev]"
-fruitsavor-api
-```
-
-Open [FruitSavor](http://127.0.0.1:8000) on the same computer. API documentation is available at [/docs](http://127.0.0.1:8000/docs).
