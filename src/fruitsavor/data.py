@@ -85,7 +85,7 @@ def audit_bananaimagebd(archive: Path) -> tuple[list[dict], dict]:
                     f'{width}x{height}:'.encode() + image.convert('RGB').tobytes()
                 ).hexdigest()
             rows.append(dict(
-                dataset_id='bananaimagebd', fruit_type='banana',
+                dataset_id='bananaimagebd', fruit_type='banana', is_augmented=False,
                 archive_member=member.filename, source_label=label,
                 ripeness_stage=LABELS[label.lower()], fruit_id=None,
                 group_id=None, captured_at=None, days_remaining=None,
