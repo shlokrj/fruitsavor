@@ -22,7 +22,7 @@
       "archive_bytes": 2182097160,
       "sha256": "12152877d85a882dec13198da9b0e64a70bb038f3c8ec520780b6c130c028ced",
       "limitations": [
-        "Archive layout not yet audited.",
+        "Remote ZIP directory contains 36 candidate specimen folders and 288 JPEG entries (days 0\u20137); full archive checksum, decoding and specimen continuity remain unverified.",
         "Day-based suggested classes are proxies, not independent visual labels.",
         "End of observation is not an observed spoilage event."
       ]
