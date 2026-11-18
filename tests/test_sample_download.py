@@ -63,3 +63,17 @@ class DownloadTests(unittest.TestCase):
         self.assertEqual(len(report['samples']), 1)
         with patch('fruitsavor.remote_zip.urlopen', side_effect=self.request):
             self.assertEqual(len(retrieve_samples(self.source, self.members, self.output, True)['samples']), 2)
+
+    def test_folder_selection_is_exact_and_includes_ambiguous_filename(self):
+        from fruitsavor.remote_zip import select_members
+        names = ['root/Banana_ID_001/Day_0.jpg', 'root/Banana_ID_001/IMG123.jpg',
+                 'root/Banana_ID_001/notes.txt', 'root/Banana_ID_0010/Day_0.jpg']
+        infos = [zipfile.ZipInfo(name) for name in names]
+        selected = select_members(infos, [names[0]], ['root/Banana_ID_001'])
+        self.assertEqual([i.filename for i in selected], names[:2])
+        with self.assertRaises(ValueError):
+            select_members(infos, folders=['missing'])
+        with self.assertRaises(ValueError):
+            select_members(infos, folders=['../root'])
+        with self.assertRaises(ValueError):
+            select_members(infos + [infos[0]], folders=['root/Banana_ID_001'])

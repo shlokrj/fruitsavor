@@ -128,6 +128,35 @@ def retrieve_samples(source, members, output, resume=False):
     return report
 
 
+def select_members(infos, members=(), folders=()):
+    from .archive_audit import IMAGE_SUFFIXES
+    from .data import safe_member
+    from pathlib import PurePosixPath
+    names = [item.filename for item in infos]
+    chosen = set(members)
+    for folder in folders:
+        safe_member(folder)
+        prefix = folder.rstrip('/') + '/'
+        matches = [item.filename for item in infos if not item.is_dir()
+                   and item.filename.startswith(prefix)
+                   and PurePosixPath(item.filename).suffix.lower() in IMAGE_SUFFIXES]
+        if not matches:
+            raise ValueError('Selected folder has no images')
+        chosen.update(matches)
+    result = []
+    for name in sorted(chosen):
+        safe_member(name)
+        if names.count(name) != 1:
+            raise ValueError('Selected member missing or ambiguous')
+        info = infos[names.index(name)]
+        if info.is_dir():
+            raise ValueError('Select files or use --folder')
+        result.append(info)
+    if not result:
+        raise ValueError('No images selected')
+    return result
+
+
 def main(argv=None):
     import argparse
     import json
@@ -136,12 +165,25 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--catalog', type=Path, default=Path('datasets/catalog.json'))
     parser.add_argument('--dataset', default='banana-day0-7')
-    parser.add_argument('--member', action='append', required=True)
-    parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--member', action='append', default=[])
+    parser.add_argument('--folder', action='append', default=[])
+    parser.add_argument('--dry-run', action='store_true')
+    parser.add_argument('--output', type=Path)
     parser.add_argument('--resume', action='store_true')
     args = parser.parse_args(argv)
     source = next(row for row in json.loads(args.catalog.read_text())['datasets'] if row['id'] == args.dataset)
-    retrieve_samples(source, args.member, args.output, args.resume)
+    if not args.member and not args.folder:
+        parser.error('Select at least one --member or --folder')
+    if not args.dry_run and args.output is None:
+        parser.error('--output is required for downloading')
+    import zipfile
+    with RemoteZipReader(source['archive_url'], source['archive_bytes']) as reader, zipfile.ZipFile(reader) as archive:
+        selected = select_members(archive.infolist(), args.member, args.folder)
+        print(json.dumps({'files': len(selected), 'compressed_bytes': sum(i.compress_size for i in selected),
+                          'uncompressed_bytes': sum(i.file_size for i in selected),
+                          'members': [i.filename for i in selected]}, indent=2))
+    if not args.dry_run:
+        retrieve_samples(source, [i.filename for i in selected], args.output, args.resume)
 
 
 if __name__ == '__main__':
