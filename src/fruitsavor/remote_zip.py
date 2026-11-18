@@ -57,48 +57,91 @@ class RemoteZipReader(io.RawIOBase):
         return data
 
 
-def main():
-    import argparse
+def save_manifest(directory, report):
+    import json
+    temporary = directory / 'manifest.json.tmp'
+    temporary.write_text(json.dumps(report, indent=2) + '\n')
+    temporary.replace(directory / 'manifest.json')
+
+
+def retrieve_samples(source, members, output, resume=False):
     import hashlib
     import json
-    from pathlib import Path
+    import re
     import zipfile
     from PIL import Image
     from .data import safe_member
 
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--catalog', type=Path, default=Path('datasets/catalog.json'))
-    parser.add_argument('--dataset', default='banana-day0-7')
-    parser.add_argument('--member', action='append', required=True)
-    parser.add_argument('--output', type=Path, required=True)
-    args = parser.parse_args()
-    source = next(row for row in json.loads(args.catalog.read_text())['datasets'] if row['id'] == args.dataset)
-    # A new directory prevents mixing partial samples or overwriting earlier evidence.
-    args.output.mkdir(parents=True, exist_ok=False)
-    report = {'dataset_id': args.dataset, 'source_url': source['source_url'],
-              'full_archive_checksum_verified': False, 'evaluation_ready': False, 'samples': []}
-    try:
-        with RemoteZipReader(source['archive_url'], source['archive_bytes']) as reader, zipfile.ZipFile(reader) as archive:
+    identity = {key: source[key] for key in ('id', 'archive_url', 'archive_bytes', 'sha256')}
+    if resume:
+        report = json.loads((output / 'manifest.json').read_text())
+        if report.get('archive_identity') != identity:
+            raise ValueError('Resume source differs from the saved archive identity')
+        seen = set()
+        for sample in report['samples']:
+            digest = sample['sha256']
+            if not re.fullmatch(r'[0-9a-f]{64}', digest):
+                raise ValueError('Invalid retained sample digest')
+            blob = (output / (digest + '.bin')).read_bytes()
+            if hashlib.sha256(blob).hexdigest() != digest or len(blob) != sample['bytes']:
+                raise ValueError('Retained sample differs from manifest')
+            if sample['archive_member'] in seen:
+                raise ValueError('Duplicate retained member')
+            seen.add(sample['archive_member'])
+    else:
+        output.mkdir(parents=True, exist_ok=False)
+        report = {'dataset_id': source['id'], 'source_url': source['source_url'],
+                  'archive_identity': identity, 'full_archive_checksum_verified': False,
+                  'evaluation_ready': False, 'samples': []}
+        seen = set()
+        save_manifest(output, report)
+    pending = list(dict.fromkeys(member for member in members if member not in seen))
+    if not pending:
+        return report
+    with RemoteZipReader(source['archive_url'], source['archive_bytes']) as reader:
+        reader.etag = report.get('etag')
+        with zipfile.ZipFile(reader) as archive:
             names = archive.namelist()
-            for member in args.member:
+            # Validate the full selection before downloading image bodies.
+            for member in pending:
                 safe_member(member)
                 if names.count(member) != 1:
                     raise ValueError('Member missing or ambiguous')
                 info = archive.getinfo(member)
                 if info.file_size > 25 * 1024 * 1024 or info.compress_size > reader.max_read:
                     raise ValueError('Sample exceeds size limit')
-                blob = archive.read(info)  # zipfile checks member CRC.
+            for member in pending:
+                blob = archive.read(member)
                 with Image.open(io.BytesIO(blob)) as image:
                     image.load()
                     dimensions = list(image.size)
                 digest = hashlib.sha256(blob).hexdigest()
-                (args.output / (digest + '.bin')).write_bytes(blob)
+                destination = output / (digest + '.bin')
+                temporary = output / (digest + '.part')
+                temporary.write_bytes(blob)
+                temporary.replace(destination)
                 report['samples'].append({'archive_member': member, 'sha256': digest,
-                                           'bytes': len(blob), 'dimensions': dimensions,
-                                           'zip_crc_verified': True, 'decoded': True})
-            report['etag'] = reader.etag
-    finally:
-        (args.output / 'manifest.json').write_text(json.dumps(report, indent=2) + '\n')
+                                          'bytes': len(blob), 'dimensions': dimensions,
+                                          'zip_crc_verified': True, 'decoded': True})
+                report['etag'] = reader.etag
+                save_manifest(output, report)
+    return report
+
+
+def main(argv=None):
+    import argparse
+    import json
+    from pathlib import Path
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--catalog', type=Path, default=Path('datasets/catalog.json'))
+    parser.add_argument('--dataset', default='banana-day0-7')
+    parser.add_argument('--member', action='append', required=True)
+    parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--resume', action='store_true')
+    args = parser.parse_args(argv)
+    source = next(row for row in json.loads(args.catalog.read_text())['datasets'] if row['id'] == args.dataset)
+    retrieve_samples(source, args.member, args.output, args.resume)
 
 
 if __name__ == '__main__':
