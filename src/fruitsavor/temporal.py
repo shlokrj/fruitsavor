@@ -10,6 +10,36 @@ import re
 from PIL import Image
 
 
+def capture_intervals(rows):
+    """Report source-clock intervals in filename order, never normalize labels."""
+    groups = defaultdict(list)
+    missing, invalid, intervals = [], [], []
+    for row in rows:
+        raw = row.get('exif_datetime_original')
+        if not raw:
+            missing.append(row['archive_member'])
+            continue
+        try:
+            stamp = datetime.strptime(raw, '%Y:%m:%d %H:%M:%S')
+        except ValueError:
+            invalid.append(row['archive_member'])
+            continue
+        if row.get('filename_day') is not None and row.get('folder_candidate'):
+            groups[row['folder_candidate']].append((row, stamp))
+    for group, items in sorted(groups.items()):
+        items.sort(key=lambda item: (item[0]['filename_day'], item[0]['archive_member']))
+        for (left, start), (right, end) in zip(items, items[1:]):
+            hours = (end - start).total_seconds() / 3600
+            intervals.append({'folder_candidate': group, 'from_member': left['archive_member'],
+                              'to_member': right['archive_member'],
+                              'filename_day_gap': right['filename_day'] - left['filename_day'],
+                              'source_clock_hours': round(hours, 4),
+                              'non_increasing_time': hours <= 0})
+    return {'intervals': intervals, 'missing_original_timestamp': missing,
+            'invalid_original_timestamp': invalid,
+            'limitation': 'Naive camera timestamps only; timezone and clock accuracy are unverified. Unassigned filename days are excluded.'}
+
+
 def audit_samples(directory):
     manifest_bytes = (directory / 'manifest.json').read_bytes()
     manifest = json.loads(manifest_bytes)
@@ -79,6 +109,7 @@ def audit_samples(directory):
                                 'unassigned_day_members': [r['archive_member'] for r in items if r['filename_day'] is None]}
                         for group, items in sorted(groups.items())},
             'filename_exif_day_disagreements': chronology,
+            'capture_intervals': capture_intervals(rows),
             'exact_pixel_duplicates': [members for members in duplicates.values() if len(members) > 1],
             'samples': rows,
             'limitations': ['Days are parsed from filenames only; missing days are not inferred.',

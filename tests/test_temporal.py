@@ -56,3 +56,16 @@ class TemporalTests(unittest.TestCase):
             report = audit_samples(self.root)
         self.assertEqual(report['filename_exif_day_disagreements'][0]['exif_calendar_days_from_day0'], 8)
         self.assertIsNone(report['samples'][1]['days_remaining'])
+
+    def test_intervals_preserve_irregular_and_reversed_capture_times(self):
+        from fruitsavor.temporal import capture_intervals
+        rows = [dict(archive_member=str(i), folder_candidate='banana', filename_day=i,
+                     exif_datetime_original=stamp) for i, stamp in enumerate([
+                         '2026:01:01 12:00:00', '2026:01:03 10:00:00', '2026:01:02 10:00:00', None, 'invalid'])]
+        rows.append(dict(archive_member='unknown', folder_candidate='banana', filename_day=None,
+                         exif_datetime_original='2026:01:04 10:00:00'))
+        report = capture_intervals(rows)
+        self.assertEqual([r['source_clock_hours'] for r in report['intervals']], [46, -24])
+        self.assertTrue(report['intervals'][1]['non_increasing_time'])
+        self.assertEqual(report['missing_original_timestamp'], ['3'])
+        self.assertEqual(report['invalid_original_timestamp'], ['4'])
