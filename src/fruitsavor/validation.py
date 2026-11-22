@@ -1,16 +1,26 @@
 """Audit a curated manifest before independent-fruit ripeness evaluation."""
 import argparse
 from collections import Counter, defaultdict
+from datetime import date
 import hashlib
 import json
 from pathlib import Path
 
 
 SPLITS = {'train', 'validation', 'test'}
+CURATION_STATUSES = {'eligible_for_exploration', 'quarantined_label_conflict', 'excluded_exact_duplicate'}
 
 
 def audit_manifest(rows):
     issues = defaultdict(list)
+    for index, row in enumerate(rows):
+        if not isinstance(row, dict):
+            raise ValueError(f'Manifest row {index + 1} must be an object')
+        for key in ('dataset_id', 'archive_member', 'group_id', 'split', 'ripeness_stage', 'curation_status'):
+            if row.get(key) is not None and not isinstance(row[key], str):
+                raise ValueError(f'Manifest row {index + 1}: {key} must be text or null')
+        if row.get('curation_status') not in CURATION_STATUSES:
+            issues['unknown_curation_status'].append(str(index + 1))
     selected = [r for r in rows if r.get('curation_status') == 'eligible_for_exploration']
     excluded = len(rows) - len(selected)
     groups, hashes, members = defaultdict(set), defaultdict(list), set()
@@ -32,6 +42,16 @@ def audit_manifest(rows):
             for key in ('source', 'reviewer', 'reviewed_at')
         ) or evidence.get('basis') not in {'specimen', 'collection_batch'}:
             issues['missing_group_evidence'].append(name)
+        if isinstance(group, str) and group.strip() and (':' not in group or any(not part.strip() for part in group.split(':', 1))):
+            issues['group_namespace_missing'].append(name)
+        if isinstance(evidence, dict):
+            reviewed = evidence.get('reviewed_at')
+            try:
+                parsed = date.fromisoformat(reviewed) if isinstance(reviewed, str) else None
+                if parsed is None or parsed.isoformat() != reviewed or parsed > date.today():
+                    raise ValueError('Review date must be an ISO date in the past or today')
+            except ValueError:
+                issues['invalid_review_date'].append(name)
         split = row.get('split')
         if split not in SPLITS:
             issues['unassigned_split'].append(name)

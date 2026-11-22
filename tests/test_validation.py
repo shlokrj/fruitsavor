@@ -74,3 +74,23 @@ class ValidationTests(unittest.TestCase):
             self.assertEqual(source.read_text(), content)
             self.assertEqual(json.loads(output.read_text())['manifest_sha256'],
                              hashlib.sha256(content.encode()).hexdigest())
+
+    def test_unknown_curation_and_invalid_review_evidence_block_pass(self):
+        rows = fixture()
+        rows[0]['group_id'] = 'unscoped'
+        rows[0]['group_evidence']['reviewed_at'] = '2026-02-30'
+        rows[1]['group_evidence']['reviewed_at'] = '2999-01-01'
+        rows.append(dict(rows[2], curation_status='typo'))
+        report = audit_manifest(rows)
+        self.assertEqual(report['issue_counts']['invalid_review_date'], 2)
+        self.assertIn('unknown_curation_status', report['issues'])
+        self.assertIn('group_namespace_missing', report['issues'])
+        self.assertFalse(report['structural_checks_passed'])
+
+    def test_malformed_manifest_fails_with_clear_error(self):
+        with self.assertRaisesRegex(ValueError, 'must be an object'):
+            audit_manifest([None])
+        rows = fixture()
+        rows[0]['group_id'] = ['not', 'text']
+        with self.assertRaisesRegex(ValueError, 'group_id must be text'):
+            audit_manifest(rows)
